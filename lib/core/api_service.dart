@@ -97,10 +97,12 @@ class ApiService {
 
   // ── Records ───────────────────────────────────────────────────────────────
 
-  static Future<List<dynamic>> records({String? type}) async {
+  static Future<List<dynamic>> records({String? type, String? q}) async {
     final dio = await _client();
-    final res = await dio.get('/records/',
-        queryParameters: type != null ? {'type': type} : null);
+    final params = <String, String>{};
+    if (type != null && type.isNotEmpty) params['type'] = type;
+    if (q    != null && q.isNotEmpty)    params['q']    = q;
+    final res = await dio.get('/records/', queryParameters: params.isEmpty ? null : params);
     return res.data;
   }
 
@@ -249,6 +251,22 @@ class ApiService {
     final dio = await _client();
     final res = await dio.get('/ai-models/');
     return List<dynamic>.from(res.data);
+  }
+
+  // ── Seizure Analysis ──────────────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>> seizureAnalysis(
+      Uint8List fileBytes, String fileName) async {
+    final dio = await _client();
+    final formData = FormData.fromMap({
+      'signal_file': MultipartFile.fromBytes(fileBytes, filename: fileName),
+    });
+    final res = await dio.post('/seizure-analysis/', data: formData,
+        options: Options(
+          headers: {'Content-Type': 'multipart/form-data'},
+          receiveTimeout: const Duration(seconds: 150),
+        ));
+    return Map<String, dynamic>.from(res.data);
   }
 
   // ── Assistant ─────────────────────────────────────────────────────────────

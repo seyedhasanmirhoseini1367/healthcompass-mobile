@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:fl_chart/fl_chart.dart';
 import '../core/api_service.dart';
 
 class AnalyticsScreen extends StatefulWidget {
@@ -12,6 +13,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   Map<String, dynamic>? _data;
   bool _loading = true;
   bool _error   = false;
+  String? _selectedBiomarker;
 
   @override
   void initState() { super.initState(); _load(); }
@@ -20,7 +22,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     setState(() { _loading = true; _error = false; });
     try {
       final data = await ApiService.analytics();
-      setState(() { _data = data; _loading = false; });
+      setState(() {
+        _data = data;
+        _loading = false;
+        final trends = data['biomarker_trends'] as Map? ?? {};
+        if (_selectedBiomarker == null || !trends.containsKey(_selectedBiomarker)) {
+          _selectedBiomarker = trends.isNotEmpty ? trends.keys.first : null;
+        }
+      });
     } catch (_) {
       setState(() { _error = true; _loading = false; });
     }
@@ -40,6 +49,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             icon: const Icon(Icons.psychology_rounded, color: Color(0xFF6366f1)),
             tooltip: 'AI Models',
             onPressed: () => context.push('/ai-models'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.biotech_rounded, color: Color(0xFF3b82f6)),
+            tooltip: 'EEG Seizure Analysis',
+            onPressed: () => context.push('/seizure-analysis'),
           ),
         ],
       ),
@@ -62,36 +76,41 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   Widget _buildContent() {
     final d = _data!;
-    final totalRecords = d['total_records'] ?? 0;
-    final hasData = totalRecords > 0;
+    final hasData = (d['total_records'] ?? 0) > 0;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
       children: [
         _statsRow(),
         const SizedBox(height: 20),
-        if (!hasData) _emptyState(),
-        if (hasData) ...[
-          if ((d['alerts'] as List).isNotEmpty) ...[
+        if (!hasData) _emptyState()
+        else ...[
+          if ((d['biomarker_trends'] as Map? ?? {}).isNotEmpty) ...[
+            _sectionTitle('Biomarker Trends', Icons.show_chart_rounded, const Color(0xFF0ea5e9)),
+            const SizedBox(height: 10),
+            _trendChart(),
+            const SizedBox(height: 20),
+          ],
+          if ((d['biomarker_latest'] as Map? ?? {}).isNotEmpty) ...[
+            _sectionTitle('Latest Lab Values', Icons.science_outlined, const Color(0xFF22c55e)),
+            const SizedBox(height: 10),
+            _labValues(),
+            const SizedBox(height: 20),
+          ],
+          if ((d['alerts'] as List? ?? []).isNotEmpty) ...[
             _sectionTitle('Health Alerts', Icons.warning_amber_rounded, const Color(0xFFf59e0b)),
             const SizedBox(height: 10),
             _alertsList(),
             const SizedBox(height: 20),
           ],
-          if ((d['biomarker_latest'] as Map).isNotEmpty) ...[
-            _sectionTitle('Latest Lab Values', Icons.science_outlined, const Color(0xFF0ea5e9)),
-            const SizedBox(height: 10),
-            _labValues(),
-            const SizedBox(height: 20),
-          ],
-          if ((d['predictions'] as List).isNotEmpty) ...[
+          if ((d['predictions'] as List? ?? []).isNotEmpty) ...[
             _sectionTitle('AI Risk Predictions', Icons.psychology_rounded, const Color(0xFF6366f1)),
             const SizedBox(height: 10),
             _predictionsList(),
             const SizedBox(height: 20),
           ],
-          if ((d['records_by_type'] as Map).isNotEmpty) ...[
-            _sectionTitle('Records by Type', Icons.folder_outlined, const Color(0xFF22c55e)),
+          if ((d['records_by_type'] as Map? ?? {}).isNotEmpty) ...[
+            _sectionTitle('Records by Type', Icons.folder_outlined, const Color(0xFF64748b)),
             const SizedBox(height: 10),
             _recordsByType(),
           ],
@@ -101,7 +120,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   }
 
   Widget _statsRow() {
-    final d = _data!;
+    final d    = _data!;
     final risk = d['latest_risk'];
     return GridView.count(
       crossAxisCount: 2,
@@ -111,9 +130,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       crossAxisSpacing: 12,
       childAspectRatio: 1.6,
       children: [
-        _statCard('Records', '${d['total_records'] ?? 0}', Icons.folder_special_rounded, const Color(0xFF0ea5e9)),
-        _statCard('Biomarkers', '${d['total_biomarkers'] ?? 0}', Icons.science_rounded, const Color(0xFF22c55e)),
-        _statCard('Alerts', '${d['unread_alerts'] ?? 0}',
+        _statCard('Records',    '${d['total_records'] ?? 0}',   Icons.folder_special_rounded,  const Color(0xFF0ea5e9)),
+        _statCard('Biomarkers', '${d['total_biomarkers'] ?? 0}', Icons.science_rounded,         const Color(0xFF22c55e)),
+        _statCard('Alerts',     '${d['unread_alerts'] ?? 0}',
             Icons.warning_amber_rounded,
             (d['unread_alerts'] ?? 0) > 0 ? const Color(0xFFef4444) : const Color(0xFF64748b)),
         _statCard('Latest Risk',
@@ -145,58 +164,171 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF1e293b))),
   ]);
 
-  Widget _alertsList() {
-    final alerts = (_data!['alerts'] as List).take(5).toList();
-    return Container(
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFe2e8f0))),
-      child: Column(
-        children: alerts.asMap().entries.map((e) {
-          final i = e.key;
-          final alert = e.value as Map;
-          final sev    = alert['severity'] ?? 'info';
-          final color  = sev == 'critical' ? const Color(0xFFef4444)
-              : sev == 'warning' ? const Color(0xFFf59e0b)
-              : const Color(0xFF0ea5e9);
-          final icon   = sev == 'critical' ? Icons.error_rounded
-              : sev == 'warning' ? Icons.warning_rounded
-              : Icons.info_rounded;
+  // ── Biomarker Trend Chart ─────────────────────────────────────────────────
 
-          return Column(children: [
-            if (i > 0) const Divider(height: 1, indent: 16),
-            ListTile(
-              leading: Container(
-                width: 36, height: 36,
-                decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                child: Icon(icon, color: color, size: 18),
-              ),
-              title: Text(alert['title'] ?? '', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-              subtitle: Text(alert['message'] ?? '', maxLines: 2, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12)),
-              trailing: alert['is_read'] == false
-                  ? Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle))
-                  : null,
-              onTap: () async {
-                if (alert['is_read'] == false) {
-                  await ApiService.markAlertRead(alert['id'].toString());
-                  setState(() => alert['is_read'] = true);
-                }
-              },
+  Widget _trendChart() {
+    final trends = (_data!['biomarker_trends'] as Map? ?? {});
+    final names  = trends.keys.toList();
+
+    final points = (trends[_selectedBiomarker] as List? ?? [])
+        .asMap()
+        .entries
+        .map((e) {
+          final pt = e.value as Map;
+          return FlSpot(e.key.toDouble(), (pt['value'] as num).toDouble());
+        })
+        .toList();
+
+    final dates = (trends[_selectedBiomarker] as List? ?? [])
+        .map((p) => (p as Map)['date']?.toString() ?? '')
+        .toList();
+
+    final unit = points.isNotEmpty
+        ? ((trends[_selectedBiomarker] as List).last as Map)['unit'] ?? ''
+        : '';
+
+    final minY = points.isEmpty ? 0.0 : points.map((p) => p.y).reduce((a, b) => a < b ? a : b);
+    final maxY = points.isEmpty ? 1.0 : points.map((p) => p.y).reduce((a, b) => a > b ? a : b);
+    final pad  = (maxY - minY) * 0.2;
+
+    return Container(
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFe2e8f0))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Selector
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+          child: SizedBox(
+            height: 34,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: names.map((name) {
+                final selected = name == _selectedBiomarker;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: GestureDetector(
+                    onTap: () => setState(() => _selectedBiomarker = name),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: selected ? const Color(0xFF0ea5e9) : const Color(0xFFf1f5f9),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(name,
+                          style: TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w600,
+                            color: selected ? Colors.white : const Color(0xFF475569),
+                          )),
+                    ),
+                  ),
+                );
+              }).toList(),
             ),
-          ]);
-        }).toList(),
-      ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (points.length >= 2)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 0, 16, 16),
+            child: SizedBox(
+              height: 180,
+              child: LineChart(
+                LineChartData(
+                  gridData: FlGridData(
+                    show: true,
+                    drawVerticalLine: false,
+                    getDrawingHorizontalLine: (_) => const FlLine(
+                      color: Color(0xFFf1f5f9), strokeWidth: 1),
+                  ),
+                  titlesData: FlTitlesData(
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 28,
+                        interval: dates.length <= 4 ? 1 : (dates.length / 4).ceilToDouble(),
+                        getTitlesWidget: (value, meta) {
+                          final i = value.toInt();
+                          if (i < 0 || i >= dates.length) return const SizedBox.shrink();
+                          final d = dates[i];
+                          final label = d.length >= 7 ? d.substring(5) : d;
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text(label, style: const TextStyle(fontSize: 9, color: Color(0xFF94a3b8))),
+                          );
+                        },
+                      ),
+                    ),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 42,
+                        getTitlesWidget: (value, meta) => Text(
+                          value.toStringAsFixed(1),
+                          style: const TextStyle(fontSize: 9, color: Color(0xFF94a3b8)),
+                        ),
+                      ),
+                    ),
+                    topTitles:   const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  ),
+                  borderData: FlBorderData(show: false),
+                  minY: (minY - pad).clamp(0, double.infinity),
+                  maxY: maxY + pad,
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: points,
+                      isCurved: true,
+                      color: const Color(0xFF0ea5e9),
+                      barWidth: 2.5,
+                      dotData: FlDotData(
+                        show: true,
+                        getDotPainter: (_, __, ___, ____) => FlDotCirclePainter(
+                          radius: 3.5,
+                          color: const Color(0xFF0ea5e9),
+                          strokeWidth: 1.5,
+                          strokeColor: Colors.white,
+                        ),
+                      ),
+                      belowBarData: BarAreaData(
+                        show: true,
+                        color: const Color(0xFF0ea5e9).withValues(alpha: 0.08),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Text(
+              points.length == 1
+                  ? 'Only one data point — need at least 2 to show a trend.'
+                  : 'No data for this biomarker.',
+              style: const TextStyle(color: Color(0xFF94a3b8), fontSize: 13),
+            ),
+          ),
+        if (unit.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Text('Unit: $unit',
+                style: const TextStyle(color: Color(0xFF94a3b8), fontSize: 11)),
+          ),
+      ]),
     );
   }
 
+  // ── Lab Values ────────────────────────────────────────────────────────────
+
   Widget _labValues() {
-    final latest = _data!['biomarker_latest'] as Map;
+    final latest = _data!['biomarker_latest'] as Map? ?? {};
     return Container(
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14),
           border: Border.all(color: const Color(0xFFe2e8f0))),
       child: Column(
         children: latest.entries.toList().asMap().entries.map((e) {
-          final i   = e.key;
+          final i    = e.key;
           final name = e.value.key as String;
           final v    = e.value.value as Map;
           final isAbnormal = v['abnormal'] == true;
@@ -204,7 +336,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           final valueColor = isCritical ? const Color(0xFFef4444)
               : isAbnormal ? const Color(0xFFf59e0b)
               : const Color(0xFF22c55e);
-
           return Column(children: [
             if (i > 0) const Divider(height: 1, indent: 16),
             Padding(
@@ -231,27 +362,67 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     );
   }
 
-  Widget _predictionsList() {
-    final preds = _data!['predictions'] as List;
-    return Column(
-      children: preds.map((p) {
-        final risk = (p['risk_pct'] as num?)?.toDouble();
-        final label = p['result_label'] ?? '';
-        final model = p['model_name'] ?? 'AI Model';
-        final color = risk == null ? const Color(0xFF64748b)
-            : risk >= 70 ? const Color(0xFFef4444)
-            : risk >= 40 ? const Color(0xFFf59e0b)
-            : const Color(0xFF22c55e);
+  // ── Alerts ────────────────────────────────────────────────────────────────
 
-        return Container(
+  Widget _alertsList() {
+    final alerts = (_data!['alerts'] as List? ?? []).take(5).toList();
+    return Container(
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFe2e8f0))),
+      child: Column(children: alerts.asMap().entries.map((e) {
+        final i    = e.key;
+        final alert = e.value as Map;
+        final sev   = alert['severity'] ?? 'info';
+        final color = sev == 'critical' ? const Color(0xFFef4444)
+            : sev == 'warning' ? const Color(0xFFf59e0b) : const Color(0xFF0ea5e9);
+        final icon  = sev == 'critical' ? Icons.error_rounded
+            : sev == 'warning' ? Icons.warning_rounded : Icons.info_rounded;
+        return Column(children: [
+          if (i > 0) const Divider(height: 1, indent: 16),
+          ListTile(
+            leading: Container(width: 36, height: 36,
+                decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                child: Icon(icon, color: color, size: 18)),
+            title: Text(alert['title'] ?? '', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+            subtitle: Text(alert['message'] ?? '', maxLines: 2, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12)),
+            trailing: alert['is_read'] == false
+                ? Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle))
+                : null,
+            onTap: () async {
+              if (alert['is_read'] == false) {
+                await ApiService.markAlertRead(alert['id'].toString());
+                setState(() => (alert as dynamic)['is_read'] = true);
+              }
+            },
+          ),
+        ]);
+      }).toList()),
+    );
+  }
+
+  // ── AI Predictions ────────────────────────────────────────────────────────
+
+  Widget _predictionsList() {
+    final preds = _data!['predictions'] as List? ?? [];
+    return Column(children: preds.map((p) {
+      final risk  = (p['risk_pct'] as num?)?.toDouble();
+      final label = p['result_label'] ?? '';
+      final model = p['model_name'] ?? 'AI Model';
+      final color = risk == null ? const Color(0xFF64748b)
+          : risk >= 70 ? const Color(0xFFef4444)
+          : risk >= 40 ? const Color(0xFFf59e0b)
+          : const Color(0xFF22c55e);
+      return GestureDetector(
+        onTap: () => context.push('/predictions/${p['id']}'),
+        child: Container(
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
               border: Border.all(color: const Color(0xFFe2e8f0))),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Expanded(child: Text(model,
-                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13))),
+              Expanded(child: Text(model, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13))),
               if (risk != null)
                 Text('${risk.toStringAsFixed(1)}%',
                     style: TextStyle(fontWeight: FontWeight.w800, color: color, fontSize: 14)),
@@ -262,49 +433,45 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             ],
             if (risk != null) ...[
               const SizedBox(height: 10),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: risk / 100,
-                  backgroundColor: const Color(0xFFf1f5f9),
-                  color: color,
-                  minHeight: 6,
-                ),
-              ),
-            ],
-            if ((p['interpretation'] ?? '').toString().isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(p['interpretation'].toString(),
-                  maxLines: 3, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Color(0xFF475569), fontSize: 12, height: 1.4)),
+              ClipRRect(borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(value: risk / 100,
+                    backgroundColor: const Color(0xFFf1f5f9), color: color, minHeight: 6)),
             ],
           ]),
-        );
-      }).toList(),
-    );
+        ),
+      );
+    }).toList());
   }
 
+  // ── Records by Type ───────────────────────────────────────────────────────
+
   Widget _recordsByType() {
-    final byType = _data!['records_by_type'] as Map;
+    final byType = _data!['records_by_type'] as Map? ?? {};
     final total  = byType.values.fold<int>(0, (s, v) => s + (v as int));
+    final colors = [
+      const Color(0xFF0ea5e9), const Color(0xFF22c55e), const Color(0xFF6366f1),
+      const Color(0xFFf59e0b), const Color(0xFFef4444), const Color(0xFF8b5cf6),
+      const Color(0xFF14b8a6), const Color(0xFFf97316),
+    ];
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14),
           border: Border.all(color: const Color(0xFFe2e8f0))),
-      child: Column(children: byType.entries.map((e) {
-        final pct = total > 0 ? (e.value as int) / total : 0.0;
+      child: Column(children: byType.entries.toList().asMap().entries.map((e) {
+        final i   = e.key;
+        final pct = total > 0 ? (e.value.value as int) / total : 0.0;
+        final col = colors[i % colors.length];
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Text(e.key, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-              Text('${e.value}', style: const TextStyle(fontSize: 13, color: Color(0xFF64748b))),
+              Text(e.value.key, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              Text('${e.value.value}', style: const TextStyle(fontSize: 13, color: Color(0xFF64748b))),
             ]),
             const SizedBox(height: 6),
             ClipRRect(borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(value: pct,
-                  backgroundColor: const Color(0xFFf1f5f9),
-                  color: const Color(0xFF0ea5e9), minHeight: 6)),
+                  backgroundColor: const Color(0xFFf1f5f9), color: col, minHeight: 6)),
           ]),
         );
       }).toList()),
@@ -320,7 +487,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       const SizedBox(height: 16),
       const Text('No analytics yet', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: Color(0xFF475569))),
       const SizedBox(height: 8),
-      const Text('Upload medical records on the website or use the Records tab to get started.',
+      const Text('Upload medical records to see your health analytics here.',
           textAlign: TextAlign.center,
           style: TextStyle(color: Color(0xFF94a3b8), fontSize: 13, height: 1.5)),
       const SizedBox(height: 20),

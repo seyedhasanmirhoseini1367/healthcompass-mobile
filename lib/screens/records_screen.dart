@@ -2,6 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../core/api_service.dart';
 
+const _recordTypes = [
+  ('', 'All'),
+  ('lab_result',     'Lab Results'),
+  ('medication',     'Medications'),
+  ('imaging',        'Imaging'),
+  ('clinical_note',  'Clinical Notes'),
+  ('discharge',      'Discharge'),
+  ('wearable',       'Wearable'),
+  ('vaccination',    'Vaccination'),
+  ('other',          'Other'),
+];
+
 class RecordsScreen extends StatefulWidget {
   const RecordsScreen({super.key});
   @override
@@ -9,21 +21,50 @@ class RecordsScreen extends StatefulWidget {
 }
 
 class _RecordsScreenState extends State<RecordsScreen> {
-  List<dynamic> _records = [];
-  bool _loading = true;
+  List<dynamic> _records   = [];
+  bool   _loading          = true;
   String? _error;
+  String _selectedType     = '';
+  final _searchCtrl        = TextEditingController();
+  String _searchQuery      = '';
 
   @override
-  void initState() { super.initState(); _load(); }
+  void initState() {
+    super.initState();
+    _load();
+    _searchCtrl.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    final q = _searchCtrl.text.trim();
+    if (q == _searchQuery) return;
+    _searchQuery = q;
+    _load();
+  }
 
   Future<void> _load() async {
     setState(() { _loading = true; _error = null; });
     try {
-      final data = await ApiService.records();
+      final data = await ApiService.records(
+        type: _selectedType.isEmpty ? null : _selectedType,
+        q:    _searchQuery.isEmpty  ? null : _searchQuery,
+      );
       setState(() { _records = data; _loading = false; });
     } catch (_) {
       setState(() { _error = 'Could not load records.'; _loading = false; });
     }
+  }
+
+  void _setType(String type) {
+    if (_selectedType == type) return;
+    setState(() => _selectedType = type);
+    _load();
   }
 
   @override
@@ -35,6 +76,64 @@ class _RecordsScreenState extends State<RecordsScreen> {
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF1e293b),
         elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(108),
+          child: Container(
+            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+            child: Column(children: [
+              TextField(
+                controller: _searchCtrl,
+                decoration: InputDecoration(
+                  hintText: 'Search records…',
+                  prefixIcon: const Icon(Icons.search, size: 20, color: Color(0xFF94a3b8)),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 18),
+                          onPressed: () { _searchCtrl.clear(); },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: const Color(0xFFf0f7ff),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 32,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: _recordTypes.map((t) {
+                    final selected = _selectedType == t.$1;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: FilterChip(
+                        label: Text(t.$2,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: selected ? Colors.white : const Color(0xFF475569),
+                            )),
+                        selected: selected,
+                        onSelected: (_) => _setType(t.$1),
+                        backgroundColor: const Color(0xFFf1f5f9),
+                        selectedColor: const Color(0xFF0ea5e9),
+                        checkmarkColor: Colors.white,
+                        side: BorderSide.none,
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ]),
+          ),
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
@@ -54,33 +153,43 @@ class _RecordsScreenState extends State<RecordsScreen> {
                   const SizedBox(height: 12),
                   Text(_error!, style: const TextStyle(color: Color(0xFF64748b))),
                   const SizedBox(height: 16),
-                  ElevatedButton(onPressed: _load,
-                      child: const Text('Retry')),
+                  ElevatedButton(onPressed: _load, child: const Text('Retry')),
                 ]))
               : RefreshIndicator(
                   onRefresh: _load,
-                  child: _records.isEmpty
-                      ? ListView(children: const [
-                          SizedBox(height: 120),
-                          Center(child: Column(children: [
-                            Icon(Icons.folder_open_rounded, size: 56, color: Color(0xFFcbd5e1)),
-                            SizedBox(height: 12),
-                            Text('No records yet', style: TextStyle(color: Color(0xFF64748b), fontSize: 16)),
-                            SizedBox(height: 4),
-                            Text('Records you upload on the website\nwill appear here',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(color: Color(0xFFcbd5e1), fontSize: 13)),
-                          ])),
-                        ])
-                      : ListView.separated(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: _records.length,
-                          separatorBuilder: (ctx, i) => const SizedBox(height: 10),
-                          itemBuilder: (ctx, i) => _recordCard(_records[i]),
-                        ),
+                  child: _records.isEmpty ? _emptyState() : _list(),
                 ),
     );
   }
+
+  Widget _emptyState() => ListView(children: [
+    const SizedBox(height: 100),
+    Center(child: Column(children: [
+      const Icon(Icons.folder_open_rounded, size: 56, color: Color(0xFFcbd5e1)),
+      const SizedBox(height: 12),
+      Text(
+        _searchQuery.isNotEmpty || _selectedType.isNotEmpty
+            ? 'No records match your search'
+            : 'No records yet',
+        style: const TextStyle(color: Color(0xFF64748b), fontSize: 16),
+      ),
+      const SizedBox(height: 4),
+      Text(
+        _searchQuery.isNotEmpty || _selectedType.isNotEmpty
+            ? 'Try a different filter or search term'
+            : 'Tap Upload to add your first record',
+        textAlign: TextAlign.center,
+        style: const TextStyle(color: Color(0xFFcbd5e1), fontSize: 13),
+      ),
+    ])),
+  ]);
+
+  Widget _list() => ListView.separated(
+    padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+    itemCount: _records.length,
+    separatorBuilder: (_, __) => const SizedBox(height: 10),
+    itemBuilder: (_, i) => _recordCard(_records[i]),
+  );
 
   Widget _recordCard(Map record) => InkWell(
     onTap: () => context.push('/records/${record['id']}'),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../core/api_service.dart';
 
 class AIModelsScreen extends StatefulWidget {
@@ -139,8 +140,20 @@ class _AIModelsScreenState extends State<AIModelsScreen> {
                 style: const TextStyle(color: Color(0xFF64748b), fontSize: 11)),
           ),
           const Spacer(),
-          Text('Run on website →',
-              style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),
+          GestureDetector(
+            onTap: () => context.push('/ai-models/${model['slug']}/run'),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                model['input_type'] == 'tabular' ? 'Run Now' : 'View Details',
+                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
         ]),
       ]),
     );
