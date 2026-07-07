@@ -8,8 +8,12 @@ import 'screens/forgot_password_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/records_screen.dart';
 import 'screens/record_detail_screen.dart';
+import 'screens/analytics_screen.dart';
 import 'screens/assistant_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/notifications_screen.dart';
+import 'screens/upload_record_screen.dart';
+import 'screens/ai_models_screen.dart';
 
 void main() => runApp(const HealthCompassApp());
 
@@ -34,17 +38,20 @@ final _router = GoRouter(
       routes: [
         GoRoute(path: '/dashboard', builder: (c, s) => const DashboardScreen()),
         GoRoute(path: '/records',   builder: (c, s) => const RecordsScreen()),
+        GoRoute(path: '/analytics', builder: (c, s) => const AnalyticsScreen()),
         GoRoute(path: '/assistant', builder: (c, s) => const AssistantScreen()),
         GoRoute(path: '/profile',   builder: (c, s) => const ProfileScreen()),
       ],
     ),
 
-    // ── Detail screens (full-screen, no bottom nav) ────────────────────────
+    // ── Full-screen routes (no bottom nav) ─────────────────────────────────
     GoRoute(
       path: '/records/:id',
-      builder: (c, s) => RecordDetailScreen(
-          recordId: int.parse(s.pathParameters['id']!)),
+      builder: (c, s) => RecordDetailScreen(recordId: s.pathParameters['id']!),
     ),
+    GoRoute(path: '/notifications', builder: (c, s) => const NotificationsScreen()),
+    GoRoute(path: '/upload',        builder: (c, s) => const UploadRecordScreen()),
+    GoRoute(path: '/ai-models',     builder: (c, s) => const AIModelsScreen()),
   ],
 );
 

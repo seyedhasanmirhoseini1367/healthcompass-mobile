@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../core/api_service.dart';
 
 class RecordDetailScreen extends StatefulWidget {
-  final int recordId;
+  final String recordId;
   const RecordDetailScreen({super.key, required this.recordId});
   @override
   State<RecordDetailScreen> createState() => _RecordDetailScreenState();

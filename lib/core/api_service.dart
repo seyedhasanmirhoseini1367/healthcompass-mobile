@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiService {
@@ -103,10 +104,31 @@ class ApiService {
     return res.data;
   }
 
-  static Future<Map<String, dynamic>> recordDetail(int id) async {
+  static Future<Map<String, dynamic>> recordDetail(String id) async {
     final dio = await _client();
     final res = await dio.get('/records/$id/');
     return res.data;
+  }
+
+  static Future<Map<String, dynamic>> uploadRecord({
+    required Uint8List fileBytes,
+    required String fileName,
+    required String title,
+    required String recordType,
+    String? recordDate,
+    String? notes,
+  }) async {
+    final dio = await _client();
+    final formData = FormData.fromMap({
+      'title':       title,
+      'record_type': recordType,
+      if (recordDate != null && recordDate.isNotEmpty) 'record_date': recordDate,
+      if (notes != null && notes.isNotEmpty) 'notes': notes,
+      'file': MultipartFile.fromBytes(fileBytes, filename: fileName),
+    });
+    final res = await dio.post('/records/upload/', data: formData,
+        options: Options(headers: {'Content-Type': 'multipart/form-data'}));
+    return Map<String, dynamic>.from(res.data);
   }
 
   // ── Dashboard ─────────────────────────────────────────────────────────────
@@ -115,6 +137,46 @@ class ApiService {
     final dio = await _client();
     final res = await dio.get('/dashboard/');
     return res.data;
+  }
+
+  // ── Analytics ─────────────────────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>> analytics() async {
+    final dio = await _client();
+    final res = await dio.get('/analytics/');
+    return Map<String, dynamic>.from(res.data);
+  }
+
+  static Future<List<dynamic>> alerts() async {
+    final dio = await _client();
+    final res = await dio.get('/alerts/');
+    return List<dynamic>.from(res.data);
+  }
+
+  static Future<void> markAlertRead(String id) async {
+    final dio = await _client();
+    await dio.patch('/alerts/$id/read/');
+  }
+
+  // ── Notifications ─────────────────────────────────────────────────────────
+
+  static Future<List<dynamic>> notifications() async {
+    final dio = await _client();
+    final res = await dio.get('/notifications/');
+    return List<dynamic>.from(res.data);
+  }
+
+  static Future<void> markNotificationRead(String id) async {
+    final dio = await _client();
+    await dio.patch('/notifications/$id/read/');
+  }
+
+  // ── AI Models ─────────────────────────────────────────────────────────────
+
+  static Future<List<dynamic>> aiModels() async {
+    final dio = await _client();
+    final res = await dio.get('/ai-models/');
+    return List<dynamic>.from(res.data);
   }
 
   // ── Assistant ─────────────────────────────────────────────────────────────

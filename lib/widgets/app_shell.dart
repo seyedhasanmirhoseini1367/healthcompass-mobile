@@ -7,8 +7,9 @@ class AppShell extends StatelessWidget {
 
   int _index(String loc) {
     if (loc.startsWith('/records'))   return 1;
-    if (loc.startsWith('/assistant')) return 2;
-    if (loc.startsWith('/profile'))   return 3;
+    if (loc.startsWith('/analytics')) return 2;
+    if (loc.startsWith('/assistant')) return 3;
+    if (loc.startsWith('/profile'))   return 4;
     return 0;
   }
 
@@ -21,12 +22,14 @@ class AppShell extends StatelessWidget {
         selectedIndex: _index(loc),
         backgroundColor: Colors.white,
         indicatorColor: const Color(0xFFe0f2fe),
+        labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
         onDestinationSelected: (i) {
           switch (i) {
             case 0: context.go('/dashboard');
             case 1: context.go('/records');
-            case 2: context.go('/assistant');
-            case 3: context.go('/profile');
+            case 2: context.go('/analytics');
+            case 3: context.go('/assistant');
+            case 4: context.go('/profile');
           }
         },
         destinations: const [
@@ -38,6 +41,10 @@ class AppShell extends StatelessWidget {
               icon: Icon(Icons.folder_outlined),
               selectedIcon: Icon(Icons.folder_rounded, color: Color(0xFF0ea5e9)),
               label: 'Records'),
+          NavigationDestination(
+              icon: Icon(Icons.bar_chart_outlined),
+              selectedIcon: Icon(Icons.bar_chart_rounded, color: Color(0xFF0ea5e9)),
+              label: 'Analytics'),
           NavigationDestination(
               icon: Icon(Icons.smart_toy_outlined),
               selectedIcon: Icon(Icons.smart_toy_rounded, color: Color(0xFF0ea5e9)),

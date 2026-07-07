@@ -36,6 +36,16 @@ class _RecordsScreenState extends State<RecordsScreen> {
         foregroundColor: const Color(0xFF1e293b),
         elevation: 0,
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          final uploaded = await context.push<bool>('/upload');
+          if (uploaded == true) _load();
+        },
+        backgroundColor: const Color(0xFF0ea5e9),
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.upload_file_rounded),
+        label: const Text('Upload', style: TextStyle(fontWeight: FontWeight.w700)),
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF0ea5e9)))
           : _error != null
