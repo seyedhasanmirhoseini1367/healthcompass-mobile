@@ -1,0 +1,63 @@
+workflows:
+  ios-release:
+    name: iOS TestFlight
+    max_build_duration: 60
+    environment:
+      flutter: 3.44.5
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.healthcompass.healthcompassMobile
+      vars:
+        APP_STORE_CONNECT_ISSUER_ID: Encrypted(...)   # fill in Codemagic UI
+        APP_STORE_CONNECT_KEY_IDENTIFIER: Encrypted(...)
+        APP_STORE_CONNECT_PRIVATE_KEY: Encrypted(...)
+        CERTIFICATE_PRIVATE_KEY: Encrypted(...)
+
+    scripts:
+      - name: Get Flutter packages
+        script: flutter pub get
+
+      - name: Build iOS (no codesign)
+        script: |
+          flutter build ios --release --no-codesign \
+            --build-name=1.0.0 \
+            --build-number=$PROJECT_BUILD_NUMBER
+
+      - name: Package IPA
+        script: |
+          xcode-project use-profiles
+          xcode-project build-ipa \
+            --workspace ios/Runner.xcworkspace \
+            --scheme Runner
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+
+    publishing:
+      app_store_connect:
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        submit_to_testflight: true
+        beta_groups:
+          - Internal Testers
+
+  android-debug:
+    name: Android APK (debug)
+    max_build_duration: 30
+    environment:
+      flutter: 3.44.5
+      java: 17
+
+    scripts:
+      - name: Get Flutter packages
+        script: flutter pub get
+
+      - name: Build APK
+        script: flutter build apk --debug
+
+    artifacts:
+      - build/app/outputs/flutter-apk/app-debug.apk
