@@ -26,6 +26,25 @@ class ApiService {
     return res.data;
   }
 
+  static Future<Map<String, dynamic>> register(String email, String password, String fullName) async {
+    final dio = await _client();
+    final res = await dio.post('/auth/register/', data: {
+      'email':      email,
+      'password1':  password,
+      'password2':  password,
+      'first_name': fullName.split(' ').first,
+      'last_name':  fullName.split(' ').length > 1 ? fullName.split(' ').last : '',
+    });
+    await _storage.write(key: 'access_token',  value: res.data['access']);
+    await _storage.write(key: 'refresh_token', value: res.data['refresh']);
+    return res.data;
+  }
+
+  static Future<void> forgotPassword(String email) async {
+    final dio = await _client();
+    await dio.post('/auth/forgot-password/', data: {'email': email});
+  }
+
   static Future<void> logout() async {
     await _storage.deleteAll();
   }
