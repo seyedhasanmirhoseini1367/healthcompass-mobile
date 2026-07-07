@@ -107,7 +107,7 @@ class _SeizureAnalysisScreenState extends State<SeizureAnalysisScreen> {
       const Text(
         'Upload a Parquet or CSV EEG file. Our ensemble of 3 deep learning models '
         '(CNN-Transformer, LSTM+Attention, CNN-LSTM Fusion) will analyze it for seizure activity.',
-        style: TextStyle(color: Colors.white80, fontSize: 13, height: 1.5),
+        style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13, height: 1.5),
       ),
     ]),
   );
