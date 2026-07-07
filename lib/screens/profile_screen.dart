@@ -92,6 +92,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ? name.trim().split(' ').map((w) => w.isNotEmpty ? w[0] : '').take(2).join().toUpperCase()
         : '?';
 
+    final picUrl = _user?['profile_picture']?.toString() ?? '';
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -103,7 +105,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         CircleAvatar(
           radius: 40,
           backgroundColor: Colors.white.withValues(alpha: 0.25),
-          child: Text(initials, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white)),
+          backgroundImage: picUrl.startsWith('http') ? NetworkImage(picUrl) : null,
+          onBackgroundImageError: picUrl.startsWith('http') ? (_, __) {} : null,
+          child: picUrl.startsWith('http')
+              ? null
+              : Text(initials, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white)),
         ),
         const SizedBox(height: 12),
         Text(name,  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white)),
