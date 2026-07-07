@@ -131,9 +131,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
   ]);
 
   Widget _actionsCard() => _card('Settings', [
-    _actionRow(Icons.lock_outline, 'Change Password', const Color(0xFF6366f1), () {}),
-    _actionRow(Icons.notifications_outlined, 'Notifications', const Color(0xFF0ea5e9), () {}),
-    _actionRow(Icons.help_outline, 'Help & Support', const Color(0xFF22c55e), () {}),
+    _actionRow(Icons.edit_outlined, 'Edit Profile', const Color(0xFF0ea5e9), () async {
+      if (_user == null) return;
+      final updated = await context.push<bool>('/edit-profile', extra: _user);
+      if (updated == true) _load();
+    }),
+    _actionRow(Icons.lock_outline, 'Change Password', const Color(0xFF6366f1), () {
+      context.push('/change-password');
+    }),
+    _actionRow(Icons.local_hospital_rounded, 'Emergency Card', const Color(0xFFef4444), () {
+      context.push('/emergency-card');
+    }),
+    _actionRow(Icons.psychology_rounded, 'My AI Predictions', const Color(0xFF22c55e), () {
+      context.push('/predictions');
+    }),
+    _actionRow(Icons.notifications_outlined, 'Notifications', const Color(0xFF94a3b8), () {
+      context.push('/notifications');
+    }),
   ]);
 
   Widget _dangerCard() => Container(

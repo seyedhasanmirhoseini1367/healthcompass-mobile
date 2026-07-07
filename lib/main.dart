@@ -14,6 +14,11 @@ import 'screens/profile_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'screens/upload_record_screen.dart';
 import 'screens/ai_models_screen.dart';
+import 'screens/edit_profile_screen.dart';
+import 'screens/change_password_screen.dart';
+import 'screens/emergency_card_screen.dart';
+import 'screens/predictions_screen.dart';
+import 'screens/prediction_detail_screen.dart';
 
 void main() => runApp(const HealthCompassApp());
 
@@ -49,9 +54,17 @@ final _router = GoRouter(
       path: '/records/:id',
       builder: (c, s) => RecordDetailScreen(recordId: s.pathParameters['id']!),
     ),
-    GoRoute(path: '/notifications', builder: (c, s) => const NotificationsScreen()),
-    GoRoute(path: '/upload',        builder: (c, s) => const UploadRecordScreen()),
-    GoRoute(path: '/ai-models',     builder: (c, s) => const AIModelsScreen()),
+    GoRoute(path: '/notifications',  builder: (c, s) => const NotificationsScreen()),
+    GoRoute(path: '/upload',         builder: (c, s) => const UploadRecordScreen()),
+    GoRoute(path: '/ai-models',      builder: (c, s) => const AIModelsScreen()),
+    GoRoute(path: '/edit-profile',   builder: (c, s) => EditProfileScreen(user: s.extra as Map<String, dynamic>)),
+    GoRoute(path: '/change-password', builder: (c, s) => const ChangePasswordScreen()),
+    GoRoute(path: '/emergency-card', builder: (c, s) => const EmergencyCardScreen()),
+    GoRoute(path: '/predictions',    builder: (c, s) => const PredictionsScreen()),
+    GoRoute(
+      path: '/predictions/:id',
+      builder: (c, s) => PredictionDetailScreen(predictionId: s.pathParameters['id']!),
+    ),
   ],
 );
 

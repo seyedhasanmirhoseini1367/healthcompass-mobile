@@ -55,6 +55,14 @@ class _AssistantScreenState extends State<AssistantScreen> {
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF1e293b),
         elevation: 0,
+        actions: [
+          if (_messages.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.add_comment_outlined),
+              tooltip: 'New chat',
+              onPressed: () => setState(() => _messages.clear()),
+            ),
+        ],
       ),
       body: Column(children: [
         Expanded(

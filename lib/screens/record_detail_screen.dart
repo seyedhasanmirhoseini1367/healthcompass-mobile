@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../core/api_service.dart';
 
 class RecordDetailScreen extends StatefulWidget {
@@ -24,6 +25,31 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     }
   }
 
+  Future<void> _confirmDelete() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Delete Record', style: TextStyle(fontWeight: FontWeight.w800)),
+        content: const Text('This record will be permanently deleted. Are you sure?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748b)))),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFef4444),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (ok == true && mounted) {
+      await ApiService.deleteRecord(widget.recordId);
+      if (mounted) context.pop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -34,6 +60,14 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF1e293b),
         elevation: 0,
+        actions: [
+          if (_record != null)
+            IconButton(
+              icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFef4444)),
+              tooltip: 'Delete record',
+              onPressed: _confirmDelete,
+            ),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF0ea5e9)))
