@@ -21,6 +21,7 @@ import 'screens/predictions_screen.dart';
 import 'screens/prediction_detail_screen.dart';
 import 'screens/run_model_screen.dart';
 import 'screens/seizure_analysis_screen.dart';
+import 'screens/population_insights_screen.dart';
 
 void main() => runApp(const HealthCompassApp());
 
@@ -71,7 +72,8 @@ final _router = GoRouter(
       path: '/ai-models/:slug/run',
       builder: (c, s) => RunModelScreen(modelSlug: s.pathParameters['slug']!),
     ),
-    GoRoute(path: '/seizure-analysis', builder: (c, s) => const SeizureAnalysisScreen()),
+    GoRoute(path: '/seizure-analysis',    builder: (c, s) => const SeizureAnalysisScreen()),
+    GoRoute(path: '/population-insights', builder: (c, s) => const PopulationInsightsScreen()),
   ],
 );
 

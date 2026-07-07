@@ -55,6 +55,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             tooltip: 'EEG Seizure Analysis',
             onPressed: () => context.push('/seizure-analysis'),
           ),
+          IconButton(
+            icon: const Icon(Icons.people_alt_rounded, color: Color(0xFF22c55e)),
+            tooltip: 'Population Insights',
+            onPressed: () => context.push('/population-insights'),
+          ),
         ],
       ),
       body: _loading

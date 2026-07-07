@@ -14,6 +14,14 @@ const _recordTypes = [
   ('other',          'Other'),
 ];
 
+const _datePresets = [
+  ('30d',  '30 Days'),
+  ('3m',   '3 Months'),
+  ('6m',   '6 Months'),
+  ('1y',   '1 Year'),
+  ('custom', 'Custom…'),
+];
+
 class RecordsScreen extends StatefulWidget {
   const RecordsScreen({super.key});
   @override
@@ -27,6 +35,9 @@ class _RecordsScreenState extends State<RecordsScreen> {
   String _selectedType     = '';
   final _searchCtrl        = TextEditingController();
   String _searchQuery      = '';
+  String? _datePreset;   // '30d','3m','6m','1y','custom'
+  String? _dateFrom;
+  String? _dateTo;
 
   @override
   void initState() {
@@ -52,8 +63,10 @@ class _RecordsScreenState extends State<RecordsScreen> {
     setState(() { _loading = true; _error = null; });
     try {
       final data = await ApiService.records(
-        type: _selectedType.isEmpty ? null : _selectedType,
-        q:    _searchQuery.isEmpty  ? null : _searchQuery,
+        type:     _selectedType.isEmpty ? null : _selectedType,
+        q:        _searchQuery.isEmpty  ? null : _searchQuery,
+        dateFrom: _dateFrom,
+        dateTo:   _dateTo,
       );
       setState(() { _records = data; _loading = false; });
     } catch (_) {
@@ -67,6 +80,59 @@ class _RecordsScreenState extends State<RecordsScreen> {
     _load();
   }
 
+  String _fmt(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2,'0')}-${d.day.toString().padLeft(2,'0')}';
+
+  Future<void> _selectPreset(String preset) async {
+    if (preset == 'custom') {
+      final range = await showDateRangePicker(
+        context: context,
+        firstDate: DateTime(2010),
+        lastDate: DateTime.now(),
+        builder: (ctx, child) => Theme(
+          data: Theme.of(ctx).copyWith(
+              colorScheme: const ColorScheme.light(primary: Color(0xFF0ea5e9))),
+          child: child!,
+        ),
+      );
+      if (range == null) return;
+      setState(() {
+        _datePreset = 'custom';
+        _dateFrom   = _fmt(range.start);
+        _dateTo     = _fmt(range.end);
+      });
+    } else if (_datePreset == preset) {
+      // deselect
+      setState(() { _datePreset = null; _dateFrom = null; _dateTo = null; });
+    } else {
+      final now = DateTime.now();
+      DateTime from;
+      switch (preset) {
+        case '30d': from = now.subtract(const Duration(days: 30));  break;
+        case '3m':  from = DateTime(now.year, now.month - 3, now.day); break;
+        case '6m':  from = DateTime(now.year, now.month - 6, now.day); break;
+        case '1y':  from = DateTime(now.year - 1, now.month, now.day); break;
+        default:    from = now.subtract(const Duration(days: 30));
+      }
+      setState(() { _datePreset = preset; _dateFrom = _fmt(from); _dateTo = _fmt(now); });
+    }
+    _load();
+  }
+
+  bool get _hasFilters => _selectedType.isNotEmpty || _searchQuery.isNotEmpty || _dateFrom != null;
+
+  void _clearFilters() {
+    _searchCtrl.clear();
+    setState(() {
+      _selectedType = '';
+      _searchQuery  = '';
+      _datePreset   = null;
+      _dateFrom     = null;
+      _dateTo       = null;
+    });
+    _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -76,33 +142,38 @@ class _RecordsScreenState extends State<RecordsScreen> {
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF1e293b),
         elevation: 0,
+        actions: [
+          if (_hasFilters)
+            TextButton.icon(
+              onPressed: _clearFilters,
+              icon: const Icon(Icons.filter_alt_off_rounded, size: 16),
+              label: const Text('Clear', style: TextStyle(fontSize: 12)),
+              style: TextButton.styleFrom(foregroundColor: const Color(0xFFef4444)),
+            ),
+        ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(108),
+          preferredSize: const Size.fromHeight(148),
           child: Container(
             color: Colors.white,
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
             child: Column(children: [
+              // Search bar
               TextField(
                 controller: _searchCtrl,
                 decoration: InputDecoration(
                   hintText: 'Search records…',
                   prefixIcon: const Icon(Icons.search, size: 20, color: Color(0xFF94a3b8)),
                   suffixIcon: _searchQuery.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear, size: 18),
-                          onPressed: () { _searchCtrl.clear(); },
-                        )
+                      ? IconButton(icon: const Icon(Icons.clear, size: 18),
+                          onPressed: () => _searchCtrl.clear())
                       : null,
-                  filled: true,
-                  fillColor: const Color(0xFFf0f7ff),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
+                  filled: true, fillColor: const Color(0xFFf0f7ff),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                   contentPadding: const EdgeInsets.symmetric(vertical: 10),
                 ),
               ),
               const SizedBox(height: 8),
+              // Type filter chips
               SizedBox(
                 height: 32,
                 child: ListView(
@@ -112,12 +183,8 @@ class _RecordsScreenState extends State<RecordsScreen> {
                     return Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: FilterChip(
-                        label: Text(t.$2,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: selected ? Colors.white : const Color(0xFF475569),
-                            )),
+                        label: Text(t.$2, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+                            color: selected ? Colors.white : const Color(0xFF475569))),
                         selected: selected,
                         onSelected: (_) => _setType(t.$1),
                         backgroundColor: const Color(0xFFf1f5f9),
@@ -130,6 +197,40 @@ class _RecordsScreenState extends State<RecordsScreen> {
                     );
                   }).toList(),
                 ),
+              ),
+              const SizedBox(height: 6),
+              // Date filter chips
+              SizedBox(
+                height: 30,
+                child: Row(children: [
+                  const Icon(Icons.date_range_rounded, size: 14, color: Color(0xFF94a3b8)),
+                  const SizedBox(width: 6),
+                  Expanded(child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: _datePresets.map((p) {
+                      final selected = _datePreset == p.$1;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: FilterChip(
+                          label: Text(
+                            p.$1 == 'custom' && _datePreset == 'custom' && _dateFrom != null
+                                ? '$_dateFrom → $_dateTo'
+                                : p.$2,
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
+                                color: selected ? Colors.white : const Color(0xFF64748b))),
+                          selected: selected,
+                          onSelected: (_) => _selectPreset(p.$1),
+                          backgroundColor: const Color(0xFFf8fafc),
+                          selectedColor: const Color(0xFF6366f1),
+                          checkmarkColor: Colors.white,
+                          side: BorderSide(color: selected ? Colors.transparent : const Color(0xFFe2e8f0)),
+                          padding: const EdgeInsets.symmetric(horizontal: 2),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      );
+                    }).toList(),
+                  )),
+                ]),
               ),
             ]),
           ),
@@ -168,15 +269,13 @@ class _RecordsScreenState extends State<RecordsScreen> {
       const Icon(Icons.folder_open_rounded, size: 56, color: Color(0xFFcbd5e1)),
       const SizedBox(height: 12),
       Text(
-        _searchQuery.isNotEmpty || _selectedType.isNotEmpty
-            ? 'No records match your search'
-            : 'No records yet',
+        _hasFilters ? 'No records match your filters' : 'No records yet',
         style: const TextStyle(color: Color(0xFF64748b), fontSize: 16),
       ),
       const SizedBox(height: 4),
       Text(
-        _searchQuery.isNotEmpty || _selectedType.isNotEmpty
-            ? 'Try a different filter or search term'
+        _hasFilters
+            ? 'Try a different filter, date range, or search term'
             : 'Tap Upload to add your first record',
         textAlign: TextAlign.center,
         style: const TextStyle(color: Color(0xFFcbd5e1), fontSize: 13),

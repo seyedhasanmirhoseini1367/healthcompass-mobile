@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:file_picker/file_picker.dart';
 import '../core/api_service.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -10,18 +11,21 @@ class EditProfileScreen extends StatefulWidget {
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
-  final _formKey    = GlobalKey<FormState>();
-  late final _firstNameCtrl  = TextEditingController(text: widget.user['first_name'] ?? '');
-  late final _lastNameCtrl   = TextEditingController(text: widget.user['last_name']  ?? '');
-  late final _phoneCtrl      = TextEditingController(text: widget.user['phone_number'] ?? '');
+  final _formKey       = GlobalKey<FormState>();
+  late final _firstNameCtrl = TextEditingController(text: widget.user['first_name'] ?? '');
+  late final _lastNameCtrl  = TextEditingController(text: widget.user['last_name']  ?? '');
+  late final _phoneCtrl     = TextEditingController(text: widget.user['phone_number'] ?? '');
   String? _dob;
-  bool  _saving = false;
+  bool   _saving     = false;
+  bool   _uploading  = false;
   String? _error;
+  String? _picUrl;
 
   @override
   void initState() {
     super.initState();
-    _dob = widget.user['date_of_birth'];
+    _dob    = widget.user['date_of_birth'];
+    _picUrl = widget.user['profile_picture']?.toString();
   }
 
   @override
@@ -34,23 +38,43 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Future<void> _pickDob() async {
     DateTime initial = DateTime(1990);
-    if (_dob != null) {
-      try { initial = DateTime.parse(_dob!); } catch (_) {}
-    }
+    if (_dob != null) { try { initial = DateTime.parse(_dob!); } catch (_) {} }
     final picked = await showDatePicker(
       context: context,
       initialDate: initial,
       firstDate: DateTime(1900),
       lastDate: DateTime.now(),
       builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.light(primary: Color(0xFF0ea5e9)),
-        ),
+        data: Theme.of(ctx).copyWith(colorScheme: const ColorScheme.light(primary: Color(0xFF0ea5e9))),
         child: child!,
       ),
     );
     if (picked != null) {
       setState(() => _dob = '${picked.year}-${picked.month.toString().padLeft(2,'0')}-${picked.day.toString().padLeft(2,'0')}');
+    }
+  }
+
+  Future<void> _pickProfilePicture() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty || result.files.first.bytes == null) return;
+    final file = result.files.first;
+    setState(() { _uploading = true; _error = null; });
+    try {
+      final updated = await ApiService.uploadProfilePicture(file.bytes!, file.name);
+      setState(() {
+        _picUrl   = updated['profile_picture']?.toString();
+        _uploading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile picture updated!'),
+              backgroundColor: Color(0xFF22c55e)));
+      }
+    } catch (_) {
+      setState(() { _error = 'Could not upload picture. Please try again.'; _uploading = false; });
     }
   }
 
@@ -66,8 +90,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile updated!'),
-              backgroundColor: Color(0xFF22c55e)));
+          const SnackBar(content: Text('Profile updated!'), backgroundColor: Color(0xFF22c55e)));
         context.pop(true);
       }
     } catch (_) {
@@ -77,6 +100,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final name = '${widget.user['first_name'] ?? ''} ${widget.user['last_name'] ?? ''}'.trim();
+    final initials = name.isNotEmpty
+        ? name.split(' ').map((w) => w.isNotEmpty ? w[0] : '').take(2).join().toUpperCase()
+        : (widget.user['username'] ?? '?').toString()[0].toUpperCase();
+
     return Scaffold(
       backgroundColor: const Color(0xFFf0f7ff),
       appBar: AppBar(
@@ -90,6 +118,42 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         child: Form(
           key: _formKey,
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            // ── Profile picture ─────────────────────────────────────────────
+            Center(child: Stack(children: [
+              GestureDetector(
+                onTap: _uploading ? null : _pickProfilePicture,
+                child: Container(
+                  width: 96, height: 96,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFF0ea5e9), width: 2.5),
+                  ),
+                  child: ClipOval(child: _uploading
+                      ? const Center(child: CircularProgressIndicator(color: Color(0xFF0ea5e9), strokeWidth: 2))
+                      : (_picUrl != null && _picUrl!.isNotEmpty && _picUrl!.startsWith('http'))
+                          ? Image.network(_picUrl!, fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => _avatar(initials))
+                          : _avatar(initials)),
+                ),
+              ),
+              Positioned(bottom: 0, right: 0,
+                child: GestureDetector(
+                  onTap: _uploading ? null : _pickProfilePicture,
+                  child: Container(
+                    width: 30, height: 30,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF0ea5e9), shape: BoxShape.circle),
+                    child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 16),
+                  ),
+                ),
+              ),
+            ])),
+            const SizedBox(height: 6),
+            const Center(child: Text('Tap to change photo',
+                style: TextStyle(color: Color(0xFF94a3b8), fontSize: 12))),
+            const SizedBox(height: 24),
+
+            // ── Form fields ─────────────────────────────────────────────────
             _field('First Name', _firstNameCtrl),
             const SizedBox(height: 14),
             _field('Last Name',  _lastNameCtrl),
@@ -144,6 +208,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       ),
     );
   }
+
+  Widget _avatar(String initials) => Container(
+    color: const Color(0xFF0ea5e9).withValues(alpha: 0.15),
+    child: Center(child: Text(initials,
+        style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Color(0xFF0ea5e9)))),
+  );
 
   Widget _field(String label, TextEditingController ctrl,
       {TextInputType keyboard = TextInputType.text}) =>

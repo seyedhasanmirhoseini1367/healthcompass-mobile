@@ -97,14 +97,6 @@ class ApiService {
 
   // ── Records ───────────────────────────────────────────────────────────────
 
-  static Future<List<dynamic>> records({String? type, String? q}) async {
-    final dio = await _client();
-    final params = <String, String>{};
-    if (type != null && type.isNotEmpty) params['type'] = type;
-    if (q    != null && q.isNotEmpty)    params['q']    = q;
-    final res = await dio.get('/records/', queryParameters: params.isEmpty ? null : params);
-    return res.data;
-  }
 
   static Future<Map<String, dynamic>> recordDetail(String id) async {
     final dio = await _client();
@@ -251,6 +243,34 @@ class ApiService {
     final dio = await _client();
     final res = await dio.get('/ai-models/');
     return List<dynamic>.from(res.data);
+  }
+
+  static Future<Map<String, dynamic>> uploadProfilePicture(
+      Uint8List bytes, String fileName) async {
+    final dio = await _client();
+    final formData = FormData.fromMap({
+      'profile_picture': MultipartFile.fromBytes(bytes, filename: fileName),
+    });
+    final res = await dio.post('/auth/profile/picture/', data: formData,
+        options: Options(headers: {'Content-Type': 'multipart/form-data'}));
+    return Map<String, dynamic>.from(res.data);
+  }
+
+  static Future<Map<String, dynamic>> populationInsights() async {
+    final dio = await _client();
+    final res = await dio.get('/population/');
+    return Map<String, dynamic>.from(res.data);
+  }
+
+  static Future<List<dynamic>> records({String? type, String? q, String? dateFrom, String? dateTo}) async {
+    final dio = await _client();
+    final params = <String, String>{};
+    if (type     != null && type.isNotEmpty)     params['type']      = type;
+    if (q        != null && q.isNotEmpty)        params['q']         = q;
+    if (dateFrom != null && dateFrom.isNotEmpty) params['date_from'] = dateFrom;
+    if (dateTo   != null && dateTo.isNotEmpty)   params['date_to']   = dateTo;
+    final res = await dio.get('/records/', queryParameters: params.isEmpty ? null : params);
+    return res.data;
   }
 
   // ── Seizure Analysis ──────────────────────────────────────────────────────
