@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'core/api_service.dart';
+import 'widgets/app_shell.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/forgot_password_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/records_screen.dart';
+import 'screens/record_detail_screen.dart';
 import 'screens/assistant_screen.dart';
+import 'screens/profile_screen.dart';
 
 void main() => runApp(const HealthCompassApp());
 
@@ -14,18 +17,34 @@ final _router = GoRouter(
   initialLocation: '/login',
   redirect: (context, state) async {
     final loggedIn = await ApiService.isLoggedIn();
-    final publicRoutes = ['/login', '/register', '/forgot-password'];
-    if (!loggedIn && !publicRoutes.contains(state.matchedLocation)) return '/login';
-    if (loggedIn  && state.matchedLocation == '/login') return '/dashboard';
+    final pub = ['/login', '/register', '/forgot-password'];
+    if (!loggedIn && !pub.contains(state.matchedLocation)) return '/login';
+    if (loggedIn  &&  pub.contains(state.matchedLocation)) return '/dashboard';
     return null;
   },
   routes: [
-    GoRoute(path: '/login',           builder: (ctx, s) => const LoginScreen()),
-    GoRoute(path: '/register',        builder: (ctx, s) => const RegisterScreen()),
-    GoRoute(path: '/forgot-password', builder: (ctx, s) => const ForgotPasswordScreen()),
-    GoRoute(path: '/dashboard',       builder: (ctx, s) => const DashboardScreen()),
-    GoRoute(path: '/records',         builder: (ctx, s) => const RecordsScreen()),
-    GoRoute(path: '/assistant',       builder: (ctx, s) => const AssistantScreen()),
+    // ── Public routes ──────────────────────────────────────────────────────
+    GoRoute(path: '/login',           builder: (c, s) => const LoginScreen()),
+    GoRoute(path: '/register',        builder: (c, s) => const RegisterScreen()),
+    GoRoute(path: '/forgot-password', builder: (c, s) => const ForgotPasswordScreen()),
+
+    // ── Authenticated shell (bottom nav) ───────────────────────────────────
+    ShellRoute(
+      builder: (context, state, child) => AppShell(child: child),
+      routes: [
+        GoRoute(path: '/dashboard', builder: (c, s) => const DashboardScreen()),
+        GoRoute(path: '/records',   builder: (c, s) => const RecordsScreen()),
+        GoRoute(path: '/assistant', builder: (c, s) => const AssistantScreen()),
+        GoRoute(path: '/profile',   builder: (c, s) => const ProfileScreen()),
+      ],
+    ),
+
+    // ── Detail screens (full-screen, no bottom nav) ────────────────────────
+    GoRoute(
+      path: '/records/:id',
+      builder: (c, s) => RecordDetailScreen(
+          recordId: int.parse(s.pathParameters['id']!)),
+    ),
   ],
 );
 
@@ -41,6 +60,7 @@ class HealthCompassApp extends StatelessWidget {
       theme: ThemeData(
         colorSchemeSeed: const Color(0xFF0ea5e9),
         useMaterial3: true,
+        fontFamily: 'Roboto',
       ),
     );
   }
