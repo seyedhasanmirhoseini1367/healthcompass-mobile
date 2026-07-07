@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "209074169579",
+    "project_id": "healthcompass-bd84d",
+    "storage_bucket": "healthcompass-bd84d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:209074169579:android:df9fad768f1ad78bda40ae",
+        "android_client_info": {
+          "package_name": "com.healthcompass.healthcompass_mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD2fFxosPyf-C7cF50NPBztCUZeVLUcWOM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

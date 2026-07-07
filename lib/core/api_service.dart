@@ -289,6 +289,13 @@ class ApiService {
     return Map<String, dynamic>.from(res.data);
   }
 
+  // ── Push notifications ────────────────────────────────────────────────────
+
+  static Future<void> registerFcmToken(String token) async {
+    final dio = await _client();
+    await dio.post('/auth/fcm-token/', data: {'token': token});
+  }
+
   // ── Assistant ─────────────────────────────────────────────────────────────
 
   static Future<Map<String, dynamic>> ask(String query,

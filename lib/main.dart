@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'core/api_service.dart';
+import 'core/notification_service.dart';
 import 'widgets/app_shell.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
@@ -23,7 +26,13 @@ import 'screens/run_model_screen.dart';
 import 'screens/seizure_analysis_screen.dart';
 import 'screens/population_insights_screen.dart';
 
-void main() => runApp(const HealthCompassApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+  FirebaseMessaging.onBackgroundMessage(firebaseBackgroundHandler);
+  await NotificationService.init();
+  runApp(const HealthCompassApp());
+}
 
 final _router = GoRouter(
   initialLocation: '/login',
