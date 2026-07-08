@@ -209,7 +209,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
                     if (i == _messages.length) return _buildTypingIndicator();
                     final m      = _messages[i];
                     final isUser = m['role'] == 'user';
-                    return _MessageBubble(message: m['content'] ?? '', isUser: isUser);
+                    return _MessageBubble(content: m['content'] ?? '', isUser: isUser);
                   },
                 ),
         ),
