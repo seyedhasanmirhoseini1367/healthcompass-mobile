@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http_parser/http_parser.dart' show MediaType as DioMediaType;
 
 class ApiService {
   static const _base    = 'https://healthcompass.hasanai.net/api/v1';
@@ -248,8 +249,16 @@ class ApiService {
   static Future<Map<String, dynamic>> uploadProfilePicture(
       Uint8List bytes, String fileName) async {
     final dio = await _client();
+    // Infer MIME type from extension so the backend accepts it
+    final ext = fileName.toLowerCase();
+    String mime = 'image/jpeg';
+    if (ext.endsWith('.png'))  mime = 'image/png';
+    if (ext.endsWith('.webp')) mime = 'image/webp';
+    if (ext.endsWith('.gif'))  mime = 'image/gif';
+    final parts = mime.split('/');
     final formData = FormData.fromMap({
-      'profile_picture': MultipartFile.fromBytes(bytes, filename: fileName),
+      'profile_picture': MultipartFile.fromBytes(bytes, filename: fileName,
+          contentType: DioMediaType(parts[0], parts[1])),
     });
     final res = await dio.post('/auth/profile/picture/', data: formData,
         options: Options(headers: {'Content-Type': 'multipart/form-data'}));
