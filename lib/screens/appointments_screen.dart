@@ -1,6 +1,18 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../core/api_service.dart';
+
+String _serverError(Object e) {
+  if (e is DioException) {
+    final data = e.response?.data;
+    if (data is Map && data['error'] != null) return data['error'].toString();
+    if (data is String && data.isNotEmpty && data.length < 300) return data;
+    final code = e.response?.statusCode;
+    return 'Server error${code != null ? " ($code)" : ""}. Please try again.';
+  }
+  return e.toString();
+}
 
 class AppointmentsScreen extends StatefulWidget {
   const AppointmentsScreen({super.key});
@@ -37,7 +49,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
       final past = await ApiService.appointments(show: 'past');
       setState(() { _upcoming = up; _past = past; _loading = false; });
     } catch (e) {
-      setState(() { _error = e.toString(); _loading = false; });
+      setState(() { _error = _serverError(e); _loading = false; });
     }
   }
 

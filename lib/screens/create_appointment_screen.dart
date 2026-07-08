@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../core/api_service.dart';
@@ -99,9 +100,15 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
       if (mounted) context.pop(true);
     } catch (e) {
       setState(() => _saving = false);
+      String msg = e.toString();
+      if (e is DioException) {
+        final data = e.response?.data;
+        if (data is Map && data['error'] != null) msg = data['error'].toString();
+        else if (data is Map) msg = data.toString();
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')));
+          SnackBar(content: Text('Error: $msg'), duration: const Duration(seconds: 6)));
       }
     }
   }
