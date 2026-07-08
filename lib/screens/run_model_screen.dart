@@ -34,7 +34,6 @@ class _RunModelScreenState extends State<RunModelScreen> {
     try {
       final data = await ApiService.aiModelDetail(widget.modelSlug);
       setState(() { _model = data; _loadingModel = false; });
-      // pre-create controllers for each field
       final schema = (data['input_schema'] as Map? ?? {});
       for (final key in schema.keys) {
         _controllers[key] = TextEditingController();
@@ -69,6 +68,69 @@ class _RunModelScreenState extends State<RunModelScreen> {
     }
   }
 
+  Future<void> _pickFromRecords() async {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => _RecordPickerSheet(
+        onRecordSelected: (record) async {
+          Navigator.pop(ctx);
+          await _fillFromRecord(record);
+        },
+      ),
+    );
+  }
+
+  Future<void> _fillFromRecord(Map<String, dynamic> record) async {
+    try {
+      final detail = await ApiService.recordDetail(record['id'].toString());
+      final labValues = (detail['lab_values'] as List?) ?? [];
+      final schema = (_model!['input_schema'] as Map? ?? {});
+      int filled = 0;
+
+      for (final key in schema.keys) {
+        final fieldNorm = key.toString().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+        for (final lv in labValues) {
+          final labNorm = (lv['parameter_name'] ?? '').toString()
+              .toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+          if (labNorm == fieldNorm ||
+              labNorm.contains(fieldNorm) ||
+              fieldNorm.contains(labNorm)) {
+            final num = double.tryParse(lv['value']?.toString() ?? '');
+            if (num != null) {
+              _controllers[key]?.text = num == num.truncateToDouble()
+                  ? num.toInt().toString()
+                  : num.toStringAsFixed(2);
+              filled++;
+            }
+            break;
+          }
+        }
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(filled > 0
+              ? 'Filled $filled field${filled > 1 ? "s" : ""} from "${record['title']}"'
+              : 'No matching fields found in this record'),
+          backgroundColor: filled > 0 ? const Color(0xFF16a34a) : const Color(0xFFb45309),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Could not load record values'),
+          backgroundColor: Color(0xFFef4444),
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    }
+  }
+
   String _fieldLabel(String key, dynamic schema) {
     if (schema is Map && (schema['label'] ?? '').toString().isNotEmpty) {
       return schema['label'].toString();
@@ -96,7 +158,6 @@ class _RunModelScreenState extends State<RunModelScreen> {
         return const TextInputType.numberWithOptions(decimal: true);
       }
     }
-    // Heuristic: most medical fields are numeric
     final numericHints = ['age', 'bmi', 'glucose', 'cholesterol', 'pressure',
         'level', 'rate', 'count', 'score', 'value', 'weight', 'height'];
     if (numericHints.any((h) => key.toLowerCase().contains(h))) {
@@ -107,8 +168,11 @@ class _RunModelScreenState extends State<RunModelScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final cat   = _model?['category'] ?? 'general';
-    final color = _catColor(cat);
+    final cat       = _model?['category'] ?? 'general';
+    final color     = _catColor(cat);
+    final schema    = (_model?['input_schema'] as Map? ?? {});
+    final inputType = _model?['input_type'] ?? 'tabular';
+    final isTabular = inputType == 'tabular';
 
     return Scaffold(
       backgroundColor: const Color(0xFFf0f7ff),
@@ -118,6 +182,13 @@ class _RunModelScreenState extends State<RunModelScreen> {
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF1e293b),
         elevation: 0,
+        actions: isTabular && schema.isNotEmpty ? [
+          IconButton(
+            icon: const Icon(Icons.folder_open_rounded),
+            tooltip: 'Use from Records',
+            onPressed: _loadingModel ? null : _pickFromRecords,
+          ),
+        ] : null,
       ),
       body: _loadingModel
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF0ea5e9)))
@@ -128,9 +199,9 @@ class _RunModelScreenState extends State<RunModelScreen> {
   }
 
   Widget _buildForm(Color color) {
-    final schema     = (_model!['input_schema'] as Map? ?? {});
-    final inputType  = _model!['input_type'] ?? 'tabular';
-    final isTabular  = inputType == 'tabular';
+    final schema    = (_model!['input_schema'] as Map? ?? {});
+    final inputType = _model!['input_type'] ?? 'tabular';
+    final isTabular = inputType == 'tabular';
 
     if (!isTabular) {
       return Center(
@@ -198,6 +269,25 @@ class _RunModelScreenState extends State<RunModelScreen> {
               ],
             ]),
           ),
+          const SizedBox(height: 16),
+
+          // From Records hint banner
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFf0f9ff),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFbae6fd)),
+            ),
+            child: const Row(children: [
+              Icon(Icons.folder_open_rounded, color: Color(0xFF0284c7), size: 18),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text('Tap  above to auto-fill fields from a saved lab record.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF0369a1))),
+              ),
+            ]),
+          ),
           const SizedBox(height: 20),
 
           const Text('Enter your health data',
@@ -207,16 +297,16 @@ class _RunModelScreenState extends State<RunModelScreen> {
           // Dynamic input fields
           ...schema.entries.map((e) {
             final key    = e.key;
-            final schema = e.value;
+            final fSchema = e.value;
             _controllers.putIfAbsent(key, () => TextEditingController());
             return Padding(
               padding: const EdgeInsets.only(bottom: 14),
               child: TextFormField(
                 controller: _controllers[key],
-                keyboardType: _keyboardType(key, schema),
+                keyboardType: _keyboardType(key, fSchema),
                 decoration: InputDecoration(
-                  labelText: _fieldLabel(key, schema),
-                  hintText:  _fieldHint(key, schema),
+                  labelText: _fieldLabel(key, fSchema),
+                  hintText:  _fieldHint(key, fSchema),
                   filled: true,
                   fillColor: Colors.white,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
@@ -236,7 +326,8 @@ class _RunModelScreenState extends State<RunModelScreen> {
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: const Color(0xFFfee2e2), borderRadius: BorderRadius.circular(10)),
+              decoration: BoxDecoration(
+                  color: const Color(0xFFfee2e2), borderRadius: BorderRadius.circular(10)),
               child: Text(_error!, style: const TextStyle(color: Color(0xFFef4444), fontSize: 13)),
             ),
           ],
@@ -282,5 +373,124 @@ class _RunModelScreenState extends State<RunModelScreen> {
       'wearable':       Color(0xFF0ea5e9),
     };
     return colors[cat] ?? const Color(0xFF6366f1);
+  }
+}
+
+// ── Record picker bottom sheet ────────────────────────────────────────────────
+
+class _RecordPickerSheet extends StatefulWidget {
+  final void Function(Map<String, dynamic>) onRecordSelected;
+  const _RecordPickerSheet({required this.onRecordSelected});
+  @override
+  State<_RecordPickerSheet> createState() => _RecordPickerSheetState();
+}
+
+class _RecordPickerSheetState extends State<_RecordPickerSheet> {
+  List<dynamic>? _records;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecords();
+  }
+
+  Future<void> _loadRecords() async {
+    try {
+      final records = await ApiService.records(type: 'lab_result');
+      setState(() { _records = records; _loading = false; });
+    } catch (_) {
+      setState(() { _error = 'Could not load records'; _loading = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      minChildSize: 0.4,
+      maxChildSize: 0.9,
+      expand: false,
+      builder: (_, ctrl) => Column(
+        children: [
+          Container(
+            margin: const EdgeInsets.only(top: 12, bottom: 8),
+            width: 40, height: 4,
+            decoration: BoxDecoration(
+                color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Row(children: [
+              const Icon(Icons.science_rounded, color: Color(0xFF0284c7), size: 20),
+              const SizedBox(width: 8),
+              const Text('Select a Lab Record',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+              const Spacer(),
+              IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close, size: 20)),
+            ]),
+          ),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Text('Values are matched to model fields by name.',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+          ),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator(color: Color(0xFF0ea5e9)))
+                : _error != null
+                    ? Center(child: Text(_error!,
+                        style: const TextStyle(color: Color(0xFFef4444))))
+                    : _records!.isEmpty
+                        ? const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(32),
+                              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                                Icon(Icons.science_outlined,
+                                    size: 48, color: Color(0xFFcbd5e1)),
+                                SizedBox(height: 12),
+                                Text('No lab records found.\nUpload a lab result first.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(color: Color(0xFF64748b))),
+                              ]),
+                            ))
+                        : ListView.separated(
+                            controller: ctrl,
+                            itemCount: _records!.length,
+                            separatorBuilder: (_, __) =>
+                                const Divider(height: 1, indent: 56),
+                            itemBuilder: (_, i) {
+                              final r = _records![i];
+                              final date = r['record_date'] ??
+                                  r['uploaded_at']?.toString().substring(0, 10) ?? '';
+                              return ListTile(
+                                leading: const CircleAvatar(
+                                  backgroundColor: Color(0xFFe0f2fe),
+                                  child: Icon(Icons.science_rounded,
+                                      color: Color(0xFF0284c7), size: 18),
+                                ),
+                                title: Text(r['title'] ?? 'Untitled',
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w600, fontSize: 14)),
+                                subtitle: date.isNotEmpty
+                                    ? Text(date,
+                                        style: const TextStyle(
+                                            fontSize: 12, color: Color(0xFF64748b)))
+                                    : null,
+                                trailing: const Icon(Icons.arrow_forward_ios_rounded,
+                                    size: 14, color: Color(0xFF94a3b8)),
+                                onTap: () => widget.onRecordSelected(
+                                    Map<String, dynamic>.from(r)),
+                              );
+                            },
+                          ),
+          ),
+        ],
+      ),
+    );
   }
 }
