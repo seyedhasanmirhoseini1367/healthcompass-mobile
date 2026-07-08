@@ -161,11 +161,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 _predictionsList(),
                 const SizedBox(height: 20),
               ],
-              if ((_data!['records_by_type'] as Map? ?? {}).isNotEmpty) ...[
-                _sectionTitle('Records by Type', Icons.folder_outlined, const Color(0xFF64748b)),
-                const SizedBox(height: 10),
-                _recordsByType(),
-              ],
             ])),
           ),
       ],
