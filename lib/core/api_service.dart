@@ -428,4 +428,9 @@ class ApiService {
     final dio = await _client();
     await dio.delete('/assistant/sessions/$id/');
   }
+
+  static Future<void> renameChatSession(String id, String title) async {
+    final dio = await _client();
+    await dio.patch('/assistant/sessions/$id/', data: {'title': title});
+  }
 }

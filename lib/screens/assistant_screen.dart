@@ -476,7 +476,7 @@ class _TypingDotsState extends State<_TypingDots> with SingleTickerProviderState
 
 // ── History bottom sheet ──────────────────────────────────────────────────────
 
-class _HistorySheet extends StatelessWidget {
+class _HistorySheet extends StatefulWidget {
   final List<Map<String, dynamic>> sessions;
   final bool   loading;
   final String? currentSessionId;
@@ -494,6 +494,89 @@ class _HistorySheet extends StatelessWidget {
     required this.onSelectSession,
     required this.onDelete,
   });
+
+  @override
+  State<_HistorySheet> createState() => _HistorySheetState();
+}
+
+class _HistorySheetState extends State<_HistorySheet> {
+  late List<Map<String, dynamic>> _local;
+
+  @override
+  void initState() {
+    super.initState();
+    _local = List.from(widget.sessions);
+  }
+
+  @override
+  void didUpdateWidget(_HistorySheet old) {
+    super.didUpdateWidget(old);
+    if (old.sessions != widget.sessions) {
+      setState(() => _local = List.from(widget.sessions));
+    }
+  }
+
+  Future<void> _delete(String id) async {
+    setState(() => _local.removeWhere((s) => s['id']?.toString() == id));
+    await widget.onDelete(id);
+  }
+
+  Future<void> _rename(String id, String currentTitle) async {
+    final ctrl = TextEditingController(text: currentTitle);
+    final newTitle = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Text('Rename chat', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          maxLength: 120,
+          decoration: InputDecoration(
+            hintText: 'Chat title',
+            filled: true,
+            fillColor: const Color(0xFFf0f7ff),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          ),
+          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF94a3b8))),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF6366f1),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (newTitle == null || newTitle.isEmpty || newTitle == currentTitle) return;
+    setState(() {
+      final idx = _local.indexWhere((s) => s['id']?.toString() == id);
+      if (idx >= 0) _local[idx] = {..._local[idx], 'title': newTitle};
+    });
+    try { await ApiService.renameChatSession(id, newTitle); } catch (_) {}
+  }
+
+  String _formatDate(String? iso) {
+    if (iso == null) return '';
+    try {
+      final dt   = DateTime.parse(iso).toLocal();
+      final diff = DateTime.now().difference(dt);
+      if (diff.inDays == 0) return 'Today';
+      if (diff.inDays == 1) return 'Yesterday';
+      if (diff.inDays < 7)  return '${diff.inDays}d ago';
+      return '${dt.day}/${dt.month}/${dt.year}';
+    } catch (_) { return ''; }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -517,7 +600,6 @@ class _HistorySheet extends StatelessWidget {
                 color: const Color(0xFFe2e8f0), borderRadius: BorderRadius.circular(2)),
             ),
           ),
-
           // Header
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 4, 12, 12),
@@ -528,21 +610,20 @@ class _HistorySheet extends StatelessWidget {
                   style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: Color(0xFF1e293b))),
               const Spacer(),
               TextButton.icon(
-                onPressed: onNewChat,
+                onPressed: widget.onNewChat,
                 icon: const Icon(Icons.add_rounded, size: 18),
                 label: const Text('New chat'),
                 style: TextButton.styleFrom(foregroundColor: const Color(0xFF6366f1)),
               ),
             ]),
           ),
-
           const Divider(height: 1, color: Color(0xFFf1f5f9)),
 
-          // Sessions list
+          // List
           Expanded(
-            child: loading
+            child: widget.loading
                 ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366f1)))
-                : sessions.isEmpty
+                : _local.isEmpty
                     ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                         const Icon(Icons.chat_bubble_outline_rounded, size: 48, color: Color(0xFFcbd5e1)),
                         const SizedBox(height: 12),
@@ -553,7 +634,7 @@ class _HistorySheet extends StatelessWidget {
                             style: TextStyle(color: Color(0xFFcbd5e1), fontSize: 12)),
                         const SizedBox(height: 20),
                         ElevatedButton.icon(
-                          onPressed: onNewChat,
+                          onPressed: widget.onNewChat,
                           icon: const Icon(Icons.add_rounded),
                           label: const Text('New Chat'),
                           style: ElevatedButton.styleFrom(
@@ -564,71 +645,86 @@ class _HistorySheet extends StatelessWidget {
                         ),
                       ]))
                     : RefreshIndicator(
-                        onRefresh: () async => onRefresh(),
+                        onRefresh: () async => widget.onRefresh(),
                         child: ListView.builder(
                           controller: scroll,
-                          padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
-                          itemCount: sessions.length,
+                          padding: const EdgeInsets.fromLTRB(12, 8, 12, 32),
+                          itemCount: _local.length,
                           itemBuilder: (_, i) {
-                            final s        = sessions[i];
-                            final id       = s['id']?.toString() ?? '';
-                            final title    = s['title']?.toString() ?? 'Chat';
-                            final count    = s['message_count'] ?? 0;
-                            final updated  = _formatDate(s['updated_at']?.toString());
-                            final isCurrent = id == currentSessionId;
-                            return Dismissible(
-                              key: Key(id),
-                              direction: DismissDirection.endToStart,
-                              background: Container(
-                                alignment: Alignment.centerRight,
-                                padding: const EdgeInsets.only(right: 16),
-                                margin: const EdgeInsets.only(bottom: 8),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFfee2e2),
-                                  borderRadius: BorderRadius.circular(14),
+                            final s         = _local[i];
+                            final id        = s['id']?.toString() ?? '';
+                            final title     = s['title']?.toString() ?? 'Chat';
+                            final count     = (s['message_count'] ?? 0) as int;
+                            final updated   = _formatDate(s['updated_at']?.toString());
+                            final isCurrent = id == widget.currentSessionId;
+
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              decoration: BoxDecoration(
+                                color: isCurrent ? const Color(0xFFf0f4ff) : const Color(0xFFf8fafc),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: isCurrent ? const Color(0xFF6366f1) : const Color(0xFFe2e8f0),
+                                  width: isCurrent ? 1.5 : 1,
                                 ),
-                                child: const Icon(Icons.delete_rounded, color: Color(0xFFef4444)),
                               ),
-                              onDismissed: (_) => onDelete(id),
-                              child: Container(
-                                margin: const EdgeInsets.only(bottom: 8),
-                                decoration: BoxDecoration(
-                                  color: isCurrent ? const Color(0xFFf0f4ff) : const Color(0xFFf8fafc),
-                                  borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(
-                                    color: isCurrent ? const Color(0xFF6366f1) : const Color(0xFFe2e8f0),
-                                    width: isCurrent ? 1.5 : 1,
-                                  ),
-                                ),
-                                child: ListTile(
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                                  leading: Container(
-                                    width: 40, height: 40,
-                                    decoration: BoxDecoration(
-                                      color: isCurrent
-                                          ? const Color(0xFF6366f1).withValues(alpha: 0.12)
-                                          : const Color(0xFFf1f5f9),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Center(
-                                      child: Icon(Icons.chat_bubble_rounded,
-                                          size: 18,
-                                          color: isCurrent ? const Color(0xFF6366f1) : const Color(0xFF94a3b8)),
-                                    ),
-                                  ),
-                                  title: Text(title,
-                                      style: TextStyle(
-                                        fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w600,
-                                        fontSize: 14,
-                                        color: isCurrent ? const Color(0xFF4338ca) : const Color(0xFF1e293b),
+                              child: InkWell(
+                                onTap: () => widget.onSelectSession(id, title),
+                                borderRadius: BorderRadius.circular(14),
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+                                  child: Row(children: [
+                                    // Icon
+                                    Container(
+                                      width: 38, height: 38,
+                                      decoration: BoxDecoration(
+                                        color: isCurrent
+                                            ? const Color(0xFF6366f1).withValues(alpha: 0.12)
+                                            : const Color(0xFFf1f5f9),
+                                        borderRadius: BorderRadius.circular(10),
                                       ),
-                                      maxLines: 2, overflow: TextOverflow.ellipsis),
-                                  subtitle: Text('$count messages • $updated',
-                                      style: const TextStyle(fontSize: 11, color: Color(0xFF94a3b8))),
-                                  onTap: () => onSelectSession(id, title),
-                                  trailing: isCurrent
-                                      ? const Icon(Icons.check_circle_rounded, color: Color(0xFF6366f1), size: 18)
-                                      : const Icon(Icons.chevron_right_rounded, color: Color(0xFFcbd5e1), size: 18),
+                                      child: Center(child: Icon(Icons.chat_bubble_rounded,
+                                          size: 17,
+                                          color: isCurrent ? const Color(0xFF6366f1) : const Color(0xFF94a3b8))),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    // Text
+                                    Expanded(child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(title,
+                                            style: TextStyle(
+                                              fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w600,
+                                              fontSize: 13,
+                                              color: isCurrent ? const Color(0xFF4338ca) : const Color(0xFF1e293b),
+                                            ),
+                                            maxLines: 2, overflow: TextOverflow.ellipsis),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          '${count == 1 ? "1 message" : "$count messages"} · $updated',
+                                          style: const TextStyle(fontSize: 11, color: Color(0xFF94a3b8)),
+                                        ),
+                                      ],
+                                    )),
+                                    // Action buttons
+                                    Row(mainAxisSize: MainAxisSize.min, children: [
+                                      // Rename
+                                      _IconBtn(
+                                        icon: Icons.edit_rounded,
+                                        color: const Color(0xFF6366f1),
+                                        tooltip: 'Rename',
+                                        onTap: () => _rename(id, title),
+                                      ),
+                                      const SizedBox(width: 2),
+                                      // Delete
+                                      _IconBtn(
+                                        icon: Icons.delete_rounded,
+                                        color: const Color(0xFFef4444),
+                                        tooltip: 'Delete',
+                                        onTap: () => _confirmDelete(id, title),
+                                      ),
+                                    ]),
+                                  ]),
                                 ),
                               ),
                             );
@@ -641,18 +737,59 @@ class _HistorySheet extends StatelessWidget {
     );
   }
 
-  String _formatDate(String? iso) {
-    if (iso == null) return '';
-    try {
-      final dt = DateTime.parse(iso).toLocal();
-      final now = DateTime.now();
-      final diff = now.difference(dt);
-      if (diff.inDays == 0) return 'Today';
-      if (diff.inDays == 1) return 'Yesterday';
-      if (diff.inDays < 7)  return '${diff.inDays} days ago';
-      return '${dt.day}/${dt.month}/${dt.year}';
-    } catch (_) {
-      return '';
-    }
+  Future<void> _confirmDelete(String id, String title) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Text('Delete chat?', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+        content: Text(
+          'This will permanently delete "$title" and all its messages.',
+          style: const TextStyle(color: Color(0xFF64748b)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF94a3b8))),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFef4444),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) await _delete(id);
   }
+}
+
+// Small icon action button used inside history rows
+class _IconBtn extends StatelessWidget {
+  final IconData icon;
+  final Color    color;
+  final String   tooltip;
+  final VoidCallback onTap;
+  const _IconBtn({required this.icon, required this.color, required this.tooltip, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+    message: tooltip,
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: 34, height: 34,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, size: 16, color: color),
+      ),
+    ),
+  );
 }
