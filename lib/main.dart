@@ -28,6 +28,8 @@ import 'screens/seizure_analysis_screen.dart';
 import 'screens/population_insights_screen.dart';
 import 'screens/appointments_screen.dart';
 import 'screens/create_appointment_screen.dart';
+import 'screens/icu_screen.dart';
+import 'screens/seizure_realtime_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -88,6 +90,8 @@ final _router = GoRouter(
       builder: (c, s) => RunModelScreen(modelSlug: s.pathParameters['slug']!),
     ),
     GoRoute(path: '/seizure-analysis',    builder: (c, s) => const SeizureAnalysisScreen()),
+    GoRoute(path: '/seizure-realtime',    builder: (c, s) => const SeizureRealtimeScreen()),
+    GoRoute(path: '/icu',                 builder: (c, s) => const IcuScreen()),
     GoRoute(path: '/population-insights', builder: (c, s) => const PopulationInsightsScreen()),
     GoRoute(
       path: '/appointments/create',

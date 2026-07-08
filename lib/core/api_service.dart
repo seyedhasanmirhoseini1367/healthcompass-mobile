@@ -433,4 +433,28 @@ class ApiService {
     final dio = await _client();
     await dio.patch('/assistant/sessions/$id/', data: {'title': title});
   }
+
+  // ── ICU Dashboard ─────────────────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>> icuDashboard() async {
+    final dio = await _client();
+    final res = await dio.get('/icu/');
+    return Map<String, dynamic>.from(res.data);
+  }
+
+  // ── Seizure Realtime Analyze ──────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>> seizureRealtimeAnalyze(
+      Uint8List fileBytes, String fileName) async {
+    final dio = await _client();
+    final formData = FormData.fromMap({
+      'signal_file': MultipartFile.fromBytes(fileBytes, filename: fileName),
+    });
+    final res = await dio.post('/seizure-realtime/analyze/', data: formData,
+        options: Options(
+          headers: {'Content-Type': 'multipart/form-data'},
+          receiveTimeout: const Duration(seconds: 180),
+        ));
+    return Map<String, dynamic>.from(res.data);
+  }
 }

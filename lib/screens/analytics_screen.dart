@@ -70,9 +70,67 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
     return CustomScrollView(
       slivers: [
-        // ── Quick navigation ──────────────────────────────────────────────
+        // ── AI Tools section label ────────────────────────────────────────
+        const SliverPadding(
+          padding: EdgeInsets.fromLTRB(16, 18, 16, 10),
+          sliver: SliverToBoxAdapter(
+            child: Text('AI Clinical Tools',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
+                    color: Color(0xFF64748b), letterSpacing: 0.4)),
+          ),
+        ),
+
+        // ── AI Feature Cards ──────────────────────────────────────────────
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+          sliver: SliverToBoxAdapter(
+            child: Column(children: [
+              _AiToolCard(
+                icon: Icons.monitor_heart_rounded,
+                emoji: '🧠',
+                color: const Color(0xFF6366f1),
+                title: 'EEG Seizure Detection',
+                subtitle: 'Upload a parquet/CSV EEG file for ensemble seizure analysis using 3 ONNX models',
+                badge: 'File Upload',
+                onTap: () => context.push('/seizure-analysis'),
+              ),
+              const SizedBox(height: 10),
+              _AiToolCard(
+                icon: Icons.graphic_eq_rounded,
+                emoji: '⚡',
+                color: const Color(0xFFf59e0b),
+                title: 'Realtime EEG Analysis',
+                subtitle: 'Analyse full EEG recording window-by-window and see seizure probability over time',
+                badge: 'Time Series',
+                onTap: () => context.push('/seizure-realtime'),
+              ),
+              const SizedBox(height: 10),
+              _AiToolCard(
+                icon: Icons.local_hospital_rounded,
+                emoji: '🏥',
+                color: const Color(0xFFef4444),
+                title: 'ICU Dashboard',
+                subtitle: 'SOFA organ failure scores, live vitals, lab trends and clinical event timeline',
+                badge: 'Demo · MIMIC-IV',
+                onTap: () => context.push('/icu'),
+              ),
+            ]),
+          ),
+        ),
+
+        // ── Explore section label ─────────────────────────────────────────
+        const SliverPadding(
+          padding: EdgeInsets.fromLTRB(16, 14, 16, 10),
+          sliver: SliverToBoxAdapter(
+            child: Text('Explore',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
+                    color: Color(0xFF64748b), letterSpacing: 0.4)),
+          ),
+        ),
+
+        // ── Navigation rows ───────────────────────────────────────────────
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
           sliver: SliverToBoxAdapter(
             child: Container(
               decoration: BoxDecoration(
@@ -528,6 +586,82 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       ),
     ]),
   );
+}
+
+// ── AI Tool card ──────────────────────────────────────────────────────────────
+
+class _AiToolCard extends StatelessWidget {
+  final IconData icon;
+  final String   emoji;
+  final Color    color;
+  final String   title;
+  final String   subtitle;
+  final String   badge;
+  final VoidCallback onTap;
+
+  const _AiToolCard({
+    required this.icon, required this.emoji, required this.color,
+    required this.title, required this.subtitle, required this.badge,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFe2e8f0)),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8, offset: const Offset(0, 2))],
+        ),
+        child: Row(children: [
+          // Accent left bar
+          Container(
+            width: 4, height: 60,
+            decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(4)),
+          ),
+          const SizedBox(width: 14),
+          // Emoji icon
+          Container(
+            width: 48, height: 48,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Center(child: Text(emoji, style: const TextStyle(fontSize: 24))),
+          ),
+          const SizedBox(width: 14),
+          // Text
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Expanded(child: Text(title,
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14,
+                      color: Color(0xFF1e293b)))),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(badge, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color)),
+              ),
+            ]),
+            const SizedBox(height: 4),
+            Text(subtitle,
+                style: const TextStyle(fontSize: 12, color: Color(0xFF64748b), height: 1.4),
+                maxLines: 2, overflow: TextOverflow.ellipsis),
+          ])),
+          const SizedBox(width: 8),
+          Icon(Icons.chevron_right_rounded, color: color.withValues(alpha: 0.5), size: 22),
+        ]),
+      ),
+    );
+  }
 }
 
 // ── Stat tile ─────────────────────────────────────────────────────────────────
