@@ -25,6 +25,8 @@ import 'screens/prediction_detail_screen.dart';
 import 'screens/run_model_screen.dart';
 import 'screens/seizure_analysis_screen.dart';
 import 'screens/population_insights_screen.dart';
+import 'screens/appointments_screen.dart';
+import 'screens/create_appointment_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -53,11 +55,12 @@ final _router = GoRouter(
     ShellRoute(
       builder: (context, state, child) => AppShell(child: child),
       routes: [
-        GoRoute(path: '/dashboard', builder: (c, s) => const DashboardScreen()),
-        GoRoute(path: '/records',   builder: (c, s) => const RecordsScreen()),
-        GoRoute(path: '/analytics', builder: (c, s) => const AnalyticsScreen()),
-        GoRoute(path: '/assistant', builder: (c, s) => const AssistantScreen()),
-        GoRoute(path: '/profile',   builder: (c, s) => const ProfileScreen()),
+        GoRoute(path: '/dashboard',    builder: (c, s) => const DashboardScreen()),
+        GoRoute(path: '/records',      builder: (c, s) => const RecordsScreen()),
+        GoRoute(path: '/appointments', builder: (c, s) => const AppointmentsScreen()),
+        GoRoute(path: '/analytics',    builder: (c, s) => const AnalyticsScreen()),
+        GoRoute(path: '/assistant',    builder: (c, s) => const AssistantScreen()),
+        GoRoute(path: '/profile',      builder: (c, s) => const ProfileScreen()),
       ],
     ),
 
@@ -83,6 +86,16 @@ final _router = GoRouter(
     ),
     GoRoute(path: '/seizure-analysis',    builder: (c, s) => const SeizureAnalysisScreen()),
     GoRoute(path: '/population-insights', builder: (c, s) => const PopulationInsightsScreen()),
+    GoRoute(
+      path: '/appointments/create',
+      builder: (c, s) => const CreateAppointmentScreen(),
+    ),
+    GoRoute(
+      path: '/appointments/:id/edit',
+      builder: (c, s) => CreateAppointmentScreen(
+        existing: s.extra as Map<String, dynamic>?,
+      ),
+    ),
   ],
 );
 

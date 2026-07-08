@@ -6,10 +6,11 @@ class AppShell extends StatelessWidget {
   const AppShell({super.key, required this.child});
 
   int _index(String loc) {
-    if (loc.startsWith('/records'))   return 1;
-    if (loc.startsWith('/analytics')) return 2;
-    if (loc.startsWith('/assistant')) return 3;
-    if (loc.startsWith('/profile'))   return 4;
+    if (loc.startsWith('/records'))      return 1;
+    if (loc.startsWith('/appointments')) return 2;
+    if (loc.startsWith('/analytics'))   return 3;
+    if (loc.startsWith('/assistant'))   return 4;
+    if (loc.startsWith('/profile'))     return 5;
     return 0;
   }
 
@@ -27,9 +28,10 @@ class AppShell extends StatelessWidget {
           switch (i) {
             case 0: context.go('/dashboard');
             case 1: context.go('/records');
-            case 2: context.go('/analytics');
-            case 3: context.go('/assistant');
-            case 4: context.go('/profile');
+            case 2: context.go('/appointments');
+            case 3: context.go('/analytics');
+            case 4: context.go('/assistant');
+            case 5: context.go('/profile');
           }
         },
         destinations: const [
@@ -41,6 +43,10 @@ class AppShell extends StatelessWidget {
               icon: Icon(Icons.folder_outlined),
               selectedIcon: Icon(Icons.folder_rounded, color: Color(0xFF0ea5e9)),
               label: 'Records'),
+          NavigationDestination(
+              icon: Icon(Icons.calendar_month_outlined),
+              selectedIcon: Icon(Icons.calendar_month_rounded, color: Color(0xFF0ea5e9)),
+              label: 'Calendar'),
           NavigationDestination(
               icon: Icon(Icons.bar_chart_outlined),
               selectedIcon: Icon(Icons.bar_chart_rounded, color: Color(0xFF0ea5e9)),

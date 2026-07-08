@@ -360,6 +360,31 @@ class ApiService {
     return (res.data['text'] ?? '').toString();
   }
 
+  // ── Appointments ─────────────────────────────────────────────────────────
+
+  static Future<List<dynamic>> appointments({String show = 'upcoming'}) async {
+    final dio = await _client();
+    final res = await dio.get('/appointments/', queryParameters: {'show': show});
+    return List<dynamic>.from(res.data);
+  }
+
+  static Future<Map<String, dynamic>> createAppointment(Map<String, dynamic> data) async {
+    final dio = await _client();
+    final res = await dio.post('/appointments/', data: data);
+    return Map<String, dynamic>.from(res.data);
+  }
+
+  static Future<Map<String, dynamic>> updateAppointment(String id, Map<String, dynamic> data) async {
+    final dio = await _client();
+    final res = await dio.patch('/appointments/$id/', data: data);
+    return Map<String, dynamic>.from(res.data);
+  }
+
+  static Future<void> deleteAppointment(String id) async {
+    final dio = await _client();
+    await dio.delete('/appointments/$id/');
+  }
+
   // ── Push notifications ────────────────────────────────────────────────────
 
   static Future<void> registerFcmToken(String token) async {
