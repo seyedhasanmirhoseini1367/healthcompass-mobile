@@ -273,7 +273,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
         onRefresh:        _loadSessions,
         onNewChat:        () { Navigator.pop(context); _newChat(); },
         onSelectSession:  (id, title) { Navigator.pop(context); _openSession(id, title); },
-        onDelete:         (id) async { await _deleteSession(id); },
+        onDelete:         (id) => _deleteSession(id),
       ),
     );
   }
@@ -483,7 +483,7 @@ class _HistorySheet extends StatefulWidget {
   final VoidCallback onRefresh;
   final VoidCallback onNewChat;
   final void Function(String id, String title) onSelectSession;
-  final void Function(String id) onDelete;
+  final Future<void> Function(String id) onDelete;
 
   const _HistorySheet({
     required this.sessions,

@@ -82,19 +82,22 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               ),
               child: Column(children: [
                 _NavRow(
-                  icon: Icons.person_rounded,
-                  color: const Color(0xFF6366f1),
+                  icon: Icons.favorite_rounded,
+                  color: const Color(0xFFef4444),
                   title: 'My Health',
-                  subtitle: 'Trends, lab values & alerts',
+                  subtitle: 'Your personal health dashboard',
                   isFirst: true,
-                  onTap: null,
+                  isLast: false,
+                  onTap: () => context.go('/dashboard'),
                 ),
                 const Divider(height: 1, indent: 56),
                 _NavRow(
                   icon: Icons.public_rounded,
                   color: const Color(0xFF0ea5e9),
                   title: 'Population Insights',
-                  subtitle: 'Anonymised statistics',
+                  subtitle: 'Anonymised statistics across all users',
+                  isFirst: false,
+                  isLast: false,
                   onTap: () => context.push('/population-insights'),
                 ),
                 const Divider(height: 1, indent: 56),
@@ -102,7 +105,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   icon: Icons.smart_toy_rounded,
                   color: const Color(0xFF22c55e),
                   title: 'AI Models',
-                  subtitle: 'Run clinical AI models',
+                  subtitle: 'Browse and run clinical AI models',
+                  isFirst: false,
                   isLast: true,
                   onTap: () => context.push('/ai-models'),
                 ),
@@ -622,10 +626,7 @@ class _NavRow extends StatelessWidget {
             Text(subtitle,
                 style: const TextStyle(fontSize: 12, color: Color(0xFF94a3b8))),
           ])),
-          if (onTap != null)
-            Icon(Icons.chevron_right_rounded, color: color.withValues(alpha: 0.5), size: 20)
-          else
-            Icon(Icons.keyboard_arrow_down_rounded, color: color.withValues(alpha: 0.5), size: 20),
+          Icon(Icons.chevron_right_rounded, color: color.withValues(alpha: 0.5), size: 20),
         ]),
       ),
     );
