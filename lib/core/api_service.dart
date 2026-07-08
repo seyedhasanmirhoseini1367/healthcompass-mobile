@@ -289,6 +289,77 @@ class ApiService {
     return Map<String, dynamic>.from(res.data);
   }
 
+  // ── Specialised record uploads ────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>> uploadPdf({
+    required Uint8List bytes, required String fileName,
+    String? recordType, String? notes,
+  }) async {
+    final dio = await _client();
+    final form = FormData.fromMap({
+      'pdf_file': MultipartFile.fromBytes(bytes, filename: fileName),
+      if (recordType != null) 'record_type': recordType,
+      if (notes != null && notes.isNotEmpty) 'notes': notes,
+    });
+    final res = await dio.post('/records/upload/pdf/', data: form,
+        options: Options(headers: {'Content-Type': 'multipart/form-data'},
+            receiveTimeout: const Duration(seconds: 60)));
+    return Map<String, dynamic>.from(res.data);
+  }
+
+  static Future<Map<String, dynamic>> uploadText({
+    required String text, String? recordType, String? notes,
+  }) async {
+    final dio = await _client();
+    final res = await dio.post('/records/upload/text/', data: {
+      'text': text,
+      'record_type': recordType ?? 'auto',
+      if (notes != null && notes.isNotEmpty) 'notes': notes,
+    });
+    return Map<String, dynamic>.from(res.data);
+  }
+
+  static Future<Map<String, dynamic>> uploadKanta({
+    required Uint8List bytes, required String fileName, String? notes,
+  }) async {
+    final dio = await _client();
+    final form = FormData.fromMap({
+      'xml_file': MultipartFile.fromBytes(bytes, filename: fileName),
+      if (notes != null && notes.isNotEmpty) 'notes': notes,
+    });
+    final res = await dio.post('/records/upload/kanta/', data: form,
+        options: Options(headers: {'Content-Type': 'multipart/form-data'},
+            receiveTimeout: const Duration(seconds: 60)));
+    return Map<String, dynamic>.from(res.data);
+  }
+
+  static Future<Map<String, dynamic>> uploadWearable({
+    required Uint8List bytes, required String fileName, String? notes,
+  }) async {
+    final dio = await _client();
+    final form = FormData.fromMap({
+      'data_file': MultipartFile.fromBytes(bytes, filename: fileName),
+      if (notes != null && notes.isNotEmpty) 'notes': notes,
+    });
+    final res = await dio.post('/records/upload/wearable/', data: form,
+        options: Options(headers: {'Content-Type': 'multipart/form-data'},
+            receiveTimeout: const Duration(seconds: 60)));
+    return Map<String, dynamic>.from(res.data);
+  }
+
+  static Future<String> scanOcr({
+    required Uint8List imageBytes, required String fileName,
+  }) async {
+    final dio = await _client();
+    final form = FormData.fromMap({
+      'image': MultipartFile.fromBytes(imageBytes, filename: fileName),
+    });
+    final res = await dio.post('/records/upload/scan/', data: form,
+        options: Options(headers: {'Content-Type': 'multipart/form-data'},
+            receiveTimeout: const Duration(seconds: 60)));
+    return (res.data['text'] ?? '').toString();
+  }
+
   // ── Push notifications ────────────────────────────────────────────────────
 
   static Future<void> registerFcmToken(String token) async {
