@@ -152,7 +152,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
             ),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(148),
+          preferredSize: const Size.fromHeight(96),
           child: Container(
             color: Colors.white,
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
@@ -173,65 +173,47 @@ class _RecordsScreenState extends State<RecordsScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              // Type filter chips
-              SizedBox(
-                height: 32,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  children: _recordTypes.map((t) {
-                    final selected = _selectedType == t.$1;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: FilterChip(
-                        label: Text(t.$2, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
-                            color: selected ? Colors.white : const Color(0xFF475569))),
-                        selected: selected,
-                        onSelected: (_) => _setType(t.$1),
-                        backgroundColor: const Color(0xFFf1f5f9),
-                        selectedColor: const Color(0xFF0ea5e9),
-                        checkmarkColor: Colors.white,
-                        side: BorderSide.none,
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-              const SizedBox(height: 6),
-              // Date filter chips
-              SizedBox(
-                height: 30,
-                child: Row(children: [
-                  const Icon(Icons.date_range_rounded, size: 14, color: Color(0xFF94a3b8)),
-                  const SizedBox(width: 6),
-                  Expanded(child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    children: _datePresets.map((p) {
-                      final selected = _datePreset == p.$1;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: FilterChip(
-                          label: Text(
-                            p.$1 == 'custom' && _datePreset == 'custom' && _dateFrom != null
-                                ? '$_dateFrom → $_dateTo'
-                                : p.$2,
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
-                                color: selected ? Colors.white : const Color(0xFF64748b))),
-                          selected: selected,
-                          onSelected: (_) => _selectPreset(p.$1),
-                          backgroundColor: const Color(0xFFf8fafc),
-                          selectedColor: const Color(0xFF6366f1),
-                          checkmarkColor: Colors.white,
-                          side: BorderSide(color: selected ? Colors.transparent : const Color(0xFFe2e8f0)),
-                          padding: const EdgeInsets.symmetric(horizontal: 2),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                      );
-                    }).toList(),
-                  )),
-                ]),
-              ),
+              // Dropdown row
+              Row(children: [
+                // ── Type dropdown ─────────────────────────────────────────
+                Expanded(child: _FilterDropdown(
+                  icon: Icons.folder_outlined,
+                  label: _selectedType.isEmpty
+                      ? 'All Types'
+                      : _recordTypes
+                          .firstWhere((t) => t.$1 == _selectedType,
+                              orElse: () => ('', 'All Types'))
+                          .$2,
+                  active: _selectedType.isNotEmpty,
+                  color: const Color(0xFF0ea5e9),
+                  items: _recordTypes.map((t) => _DropItem(t.$1, t.$2)).toList(),
+                  selected: _selectedType,
+                  onSelect: _setType,
+                )),
+                const SizedBox(width: 10),
+                // ── Time dropdown ─────────────────────────────────────────
+                Expanded(child: _FilterDropdown(
+                  icon: Icons.calendar_month_rounded,
+                  label: _datePreset == null
+                      ? 'Any Time'
+                      : _datePreset == 'custom' && _dateFrom != null
+                          ? 'Custom range'
+                          : _datePresets
+                              .firstWhere((p) => p.$1 == _datePreset,
+                                  orElse: () => ('', 'Any Time'))
+                              .$2,
+                  active: _datePreset != null,
+                  color: const Color(0xFF6366f1),
+                  items: [
+                    const _DropItem('', 'Any Time'),
+                    ..._datePresets.map((p) => _DropItem(p.$1, p.$2)),
+                  ],
+                  selected: _datePreset ?? '',
+                  onSelect: (v) => v.isEmpty ? setState(() {
+                    _datePreset = null; _dateFrom = null; _dateTo = null; _load();
+                  }) : _selectPreset(v),
+                )),
+              ]),
             ]),
           ),
         ),
@@ -328,4 +310,94 @@ class _RecordsScreenState extends State<RecordsScreen> {
       ]),
     ),
   );
+}
+
+// ── Dropdown filter helpers ───────────────────────────────────────────────────
+
+class _DropItem {
+  final String value, label;
+  const _DropItem(this.value, this.label);
+}
+
+class _FilterDropdown extends StatelessWidget {
+  final IconData icon;
+  final String   label;
+  final bool     active;
+  final Color    color;
+  final List<_DropItem> items;
+  final String   selected;
+  final void Function(String) onSelect;
+
+  const _FilterDropdown({
+    required this.icon,
+    required this.label,
+    required this.active,
+    required this.color,
+    required this.items,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<String>(
+      onSelected: onSelect,
+      offset: const Offset(0, 44),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      elevation: 8,
+      color: Colors.white,
+      itemBuilder: (_) => items.map((item) {
+        final isSelected = item.value == selected;
+        return PopupMenuItem<String>(
+          value: item.value,
+          height: 44,
+          child: Row(children: [
+            Container(
+              width: 28, height: 28,
+              decoration: BoxDecoration(
+                color: isSelected ? color.withValues(alpha: 0.12) : const Color(0xFFf1f5f9),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                isSelected ? Icons.check_rounded : Icons.circle_outlined,
+                size: 14,
+                color: isSelected ? color : const Color(0xFFcbd5e1),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(child: Text(item.label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  color: isSelected ? color : const Color(0xFF1e293b),
+                ))),
+          ]),
+        );
+      }).toList(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          color: active ? color.withValues(alpha: 0.08) : const Color(0xFFf1f5f9),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: active ? color.withValues(alpha: 0.35) : const Color(0xFFe2e8f0),
+            width: active ? 1.5 : 1,
+          ),
+        ),
+        child: Row(children: [
+          Icon(icon, size: 15, color: active ? color : const Color(0xFF94a3b8)),
+          const SizedBox(width: 6),
+          Expanded(child: Text(label,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: active ? color : const Color(0xFF475569),
+              ))),
+          Icon(Icons.keyboard_arrow_down_rounded,
+              size: 16, color: active ? color : const Color(0xFF94a3b8)),
+        ]),
+      ),
+    );
+  }
 }
