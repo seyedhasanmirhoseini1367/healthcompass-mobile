@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:http_parser/http_parser.dart' show MediaType as DioMediaType;
+import 'package:http_parser/http_parser.dart' as http_parser;
 
 class ApiService {
   static const _base    = 'https://healthcompass.hasanai.net/api/v1';
@@ -258,7 +258,7 @@ class ApiService {
     final parts = mime.split('/');
     final formData = FormData.fromMap({
       'profile_picture': MultipartFile.fromBytes(bytes, filename: fileName,
-          contentType: DioMediaType(parts[0], parts[1])),
+          contentType: http_parser.MediaType(parts[0], parts[1])),
     });
     final res = await dio.post('/auth/profile/picture/', data: formData,
         options: Options(headers: {'Content-Type': 'multipart/form-data'}));
