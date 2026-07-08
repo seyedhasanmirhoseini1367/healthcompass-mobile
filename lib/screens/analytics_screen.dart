@@ -177,46 +177,36 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   Widget _statsRow() {
     final d    = _data!;
     final risk = d['latest_risk'];
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 12,
-      childAspectRatio: 1.6,
-      children: [
-        _statCard('Records',    '${d['total_records'] ?? 0}',    Icons.folder_special_rounded, const Color(0xFF0ea5e9)),
-        _statCard('Biomarkers', '${d['total_biomarkers'] ?? 0}', Icons.science_rounded,        const Color(0xFF22c55e)),
-        _statCard('Alerts', '${d['unread_alerts'] ?? 0}',
-            Icons.warning_amber_rounded,
-            (d['unread_alerts'] ?? 0) > 0 ? const Color(0xFFef4444) : const Color(0xFF64748b)),
-        _statCard('Latest Risk',
-            risk != null ? '$risk%' : '—',
-            Icons.analytics_rounded,
-            risk == null ? const Color(0xFF64748b)
-                : risk >= 70 ? const Color(0xFFef4444)
-                : risk >= 40 ? const Color(0xFFf59e0b)
-                : const Color(0xFF22c55e)),
-      ],
-    );
-  }
+    final alertCount = d['unread_alerts'] ?? 0;
+    final riskColor = risk == null    ? const Color(0xFF64748b)
+        : risk >= 70 ? const Color(0xFFef4444)
+        : risk >= 40 ? const Color(0xFFf59e0b)
+        :              const Color(0xFF22c55e);
 
-  Widget _statCard(String label, String value, IconData icon, Color color) => Container(
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFe2e8f0)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))]),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Container(
-        padding: const EdgeInsets.all(7),
-        decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(9)),
-        child: Icon(icon, color: color, size: 18),
-      ),
-      const Spacer(),
-      Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: color)),
-      Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF64748b))),
-    ]),
-  );
+    return Row(children: [
+      Expanded(child: _StatTile(
+        icon: Icons.science_rounded,
+        label: 'Biomarkers',
+        value: '${d['total_biomarkers'] ?? 0}',
+        color: const Color(0xFF22c55e),
+      )),
+      const SizedBox(width: 10),
+      Expanded(child: _StatTile(
+        icon: Icons.notifications_rounded,
+        label: 'Alerts',
+        value: '$alertCount',
+        color: alertCount > 0 ? const Color(0xFFef4444) : const Color(0xFF64748b),
+        badge: alertCount > 0,
+      )),
+      const SizedBox(width: 10),
+      Expanded(child: _StatTile(
+        icon: Icons.monitor_heart_rounded,
+        label: 'AI Risk',
+        value: risk != null ? '$risk%' : 'N/A',
+        color: riskColor,
+      )),
+    ]);
+  }
 
   Widget _sectionTitle(String title, IconData icon, Color color) => Row(children: [
     Icon(icon, size: 18, color: color),
@@ -539,6 +529,55 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       ),
     ]),
   );
+}
+
+// ── Stat tile ─────────────────────────────────────────────────────────────────
+
+class _StatTile extends StatelessWidget {
+  final IconData icon;
+  final String   label;
+  final String   value;
+  final Color    color;
+  final bool     badge;
+
+  const _StatTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+    this.badge = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: badge ? color.withValues(alpha: 0.3) : const Color(0xFFe2e8f0)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(icon, size: 16, color: color),
+          if (badge) ...[
+            const Spacer(),
+            Container(
+              width: 7, height: 7,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
+          ],
+        ]),
+        const SizedBox(height: 8),
+        Text(value, style: TextStyle(
+            fontSize: 22, fontWeight: FontWeight.w900,
+            color: color, height: 1)),
+        const SizedBox(height: 2),
+        Text(label, style: const TextStyle(
+            fontSize: 11, color: Color(0xFF94a3b8), fontWeight: FontWeight.w500)),
+      ]),
+    );
+  }
 }
 
 // ── Nav row ───────────────────────────────────────────────────────────────────
