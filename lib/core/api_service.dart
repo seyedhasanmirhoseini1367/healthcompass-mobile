@@ -403,11 +403,29 @@ class ApiService {
 
   // ── Assistant ─────────────────────────────────────────────────────────────
 
-  static Future<Map<String, dynamic>> ask(String query,
-      {List history = const []}) async {
+  static Future<Map<String, dynamic>> ask(String query, {String? sessionId}) async {
     final dio = await _client();
-    final res = await dio.post('/assistant/ask/',
-        data: {'query': query, 'history': history});
+    final res = await dio.post('/assistant/ask/', data: {
+      'query': query,
+      if (sessionId != null) 'session_id': sessionId,
+    });
     return res.data;
+  }
+
+  static Future<Map<String, dynamic>> chatSessions() async {
+    final dio = await _client();
+    final res = await dio.get('/assistant/sessions/');
+    return res.data;
+  }
+
+  static Future<Map<String, dynamic>> chatSessionDetail(String id) async {
+    final dio = await _client();
+    final res = await dio.get('/assistant/sessions/$id/');
+    return res.data;
+  }
+
+  static Future<void> deleteChatSession(String id) async {
+    final dio = await _client();
+    await dio.delete('/assistant/sessions/$id/');
   }
 }
