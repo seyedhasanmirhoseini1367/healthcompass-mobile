@@ -80,13 +80,26 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                     _headerCard(),
                     const SizedBox(height: 14),
                     if ((_record!['notes'] ?? '').toString().isNotEmpty) ...[
-                      _section('Notes', _record!['notes']),
+                      _textSection('Notes', _record!['notes']),
+                      const SizedBox(height: 14),
+                    ],
+                    if ((_record!['lab_values'] as List? ?? []).isNotEmpty) ...[
+                      _labValuesSection(),
+                      const SizedBox(height: 14),
+                    ],
+                    if ((_record!['wearable_points'] as List? ?? []).isNotEmpty) ...[
+                      _wearableSection(),
                       const SizedBox(height: 14),
                     ],
                     if (_record!['parsed_data'] != null &&
                         (_record!['parsed_data'] as Map).isNotEmpty) ...[
                       _parsedDataSection(),
+                      const SizedBox(height: 14),
                     ],
+                    if ((_record!['raw_text'] ?? '').toString().isNotEmpty) ...[
+                      _textSection('Extracted Text', _record!['raw_text']),
+                    ],
+                    const SizedBox(height: 24),
                   ],
                 ),
     );
@@ -117,6 +130,8 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
       _metaRow(Icons.category_outlined, 'Type',  _record!['record_type_display'] ?? ''),
       _metaRow(Icons.calendar_today_outlined, 'Date',
           _record!['record_date'] ?? _record!['uploaded_at']?.toString().split('T').first ?? ''),
+      _metaRow(Icons.cloud_upload_outlined, 'Uploaded',
+          _record!['uploaded_at']?.toString().split('T').first ?? ''),
     ]),
   );
 
@@ -125,10 +140,177 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
       Icon(icon, size: 16, color: const Color(0xFF94a3b8)),
       const SizedBox(width: 8),
       Text('$label: ', style: const TextStyle(color: Color(0xFF64748b), fontSize: 13)),
-      Text(value,      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF1e293b))),
+      Expanded(child: Text(value,
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF1e293b)))),
     ]));
 
-  Widget _section(String title, String content) => Container(
+  // ── Lab Values ──────────────────────────────────────────────────────────────
+  Widget _labValuesSection() {
+    final labs = List<Map<String, dynamic>>.from(
+        (_record!['lab_values'] as List).map((e) => Map<String, dynamic>.from(e)));
+    final abnormal  = labs.where((l) => l['is_abnormal'] == true).toList();
+    final critical  = labs.where((l) => l['is_critical'] == true).toList();
+    final normal    = labs.where((l) => l['is_abnormal'] != true).toList();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFe2e8f0))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.science_rounded, size: 18, color: Color(0xFF0ea5e9)),
+          const SizedBox(width: 8),
+          const Text('Lab Values', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF1e293b))),
+          const Spacer(),
+          if (critical.isNotEmpty)
+            _badge('${critical.length} Critical', const Color(0xFFef4444)),
+          if (abnormal.isNotEmpty) ...[
+            const SizedBox(width: 6),
+            _badge('${abnormal.length} Abnormal', const Color(0xFFf59e0b)),
+          ],
+        ]),
+        const SizedBox(height: 12),
+        // Critical first, then abnormal, then normal
+        ...[ ...critical, ...abnormal.where((l) => l['is_critical'] != true), ...normal ]
+            .map((lab) => _labRow(lab)),
+      ]),
+    );
+  }
+
+  Widget _labRow(Map<String, dynamic> lab) {
+    final isCritical = lab['is_critical'] == true;
+    final isAbnormal = lab['is_abnormal'] == true;
+    final color = isCritical ? const Color(0xFFef4444)
+        : isAbnormal ? const Color(0xFFf59e0b)
+        : const Color(0xFF22c55e);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: isAbnormal ? 0.3 : 0.1)),
+      ),
+      child: Row(children: [
+        Container(width: 3, height: 36,
+            decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
+        const SizedBox(width: 10),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(lab['parameter_name'] ?? '',
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF1e293b))),
+          if ((lab['reference_range'] ?? '').toString().isNotEmpty)
+            Text('Ref: ${lab['reference_range']}',
+                style: const TextStyle(color: Color(0xFF94a3b8), fontSize: 11)),
+        ])),
+        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Text('${lab['value']} ${lab['unit'] ?? ''}',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: color)),
+          if (isCritical)
+            const Text('CRITICAL', style: TextStyle(color: Color(0xFFef4444), fontSize: 10, fontWeight: FontWeight.w900))
+          else if (isAbnormal)
+            const Text('Abnormal', style: TextStyle(color: Color(0xFFf59e0b), fontSize: 10, fontWeight: FontWeight.w700)),
+        ]),
+      ]),
+    );
+  }
+
+  // ── Wearable Points ─────────────────────────────────────────────────────────
+  Widget _wearableSection() {
+    final points = List<Map<String, dynamic>>.from(
+        (_record!['wearable_points'] as List).map((e) => Map<String, dynamic>.from(e)));
+
+    // Group by metric
+    final Map<String, List<Map<String, dynamic>>> grouped = {};
+    for (final p in points) {
+      final key = p['metric_display'] ?? p['metric'] ?? 'Other';
+      grouped.putIfAbsent(key, () => []).add(p);
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFe2e8f0))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.watch_rounded, size: 18, color: Color(0xFF6366f1)),
+          const SizedBox(width: 8),
+          const Text('Wearable Data', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF1e293b))),
+          const Spacer(),
+          Text('${points.length} readings', style: const TextStyle(color: Color(0xFF94a3b8), fontSize: 12)),
+        ]),
+        const SizedBox(height: 12),
+        ...grouped.entries.map((e) {
+          final vals = e.value.map((p) => (p['value'] as num).toDouble()).toList();
+          final avg  = vals.reduce((a, b) => a + b) / vals.length;
+          final min  = vals.reduce((a, b) => a < b ? a : b);
+          final max  = vals.reduce((a, b) => a > b ? a : b);
+          final unit = e.value.first['unit'] ?? '';
+          return Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFf8fafc), borderRadius: BorderRadius.circular(10)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(e.key, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF1e293b))),
+              const SizedBox(height: 8),
+              Row(children: [
+                _statBox('Avg', avg.toStringAsFixed(1), unit, const Color(0xFF6366f1)),
+                const SizedBox(width: 8),
+                _statBox('Min', min.toStringAsFixed(1), unit, const Color(0xFF22c55e)),
+                const SizedBox(width: 8),
+                _statBox('Max', max.toStringAsFixed(1), unit, const Color(0xFFef4444)),
+              ]),
+            ]),
+          );
+        }),
+      ]),
+    );
+  }
+
+  Widget _statBox(String label, String value, String unit, Color color) => Expanded(
+    child: Container(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
+      child: Column(children: [
+        Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 2),
+        Text(value, style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.w900)),
+        if (unit.isNotEmpty)
+          Text(unit, style: TextStyle(color: color.withValues(alpha: 0.7), fontSize: 10)),
+      ]),
+    ),
+  );
+
+  // ── Parsed Data ─────────────────────────────────────────────────────────────
+  Widget _parsedDataSection() {
+    final data = Map<String, dynamic>.from(_record!['parsed_data'] as Map);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFe2e8f0))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Row(children: [
+          Icon(Icons.data_object_rounded, size: 18, color: Color(0xFF94a3b8)),
+          SizedBox(width: 8),
+          Text('Parsed Data', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF1e293b))),
+        ]),
+        const SizedBox(height: 10),
+        ...data.entries.map((e) => Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(flex: 2, child: Text(e.key,
+                style: const TextStyle(color: Color(0xFF64748b), fontSize: 13))),
+            Expanded(flex: 3, child: Text(e.value.toString(),
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF1e293b)))),
+          ]),
+        )),
+      ]),
+    );
+  }
+
+  Widget _textSection(String title, String content) => Container(
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFe2e8f0))),
@@ -139,25 +321,9 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     ]),
   );
 
-  Widget _parsedDataSection() {
-    final data = _record!['parsed_data'] as Map<String, dynamic>;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFe2e8f0))),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Parsed Data', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF64748b))),
-        const SizedBox(height: 10),
-        ...data.entries.map((e) => Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Expanded(flex: 2, child: Text(e.key,
-                style: const TextStyle(color: Color(0xFF64748b), fontSize: 13))),
-            Expanded(flex: 3, child: Text(e.value.toString(),
-                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
-          ]),
-        )),
-      ]),
-    );
-  }
+  Widget _badge(String label, Color color) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+    decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+    child: Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w700)),
+  );
 }

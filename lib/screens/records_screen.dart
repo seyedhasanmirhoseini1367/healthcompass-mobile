@@ -4,14 +4,14 @@ import '../core/api_service.dart';
 
 const _recordTypes = [
   ('', 'All'),
-  ('lab_result',     'Lab Results'),
-  ('medication',     'Medications'),
-  ('imaging',        'Imaging'),
-  ('clinical_note',  'Clinical Notes'),
-  ('discharge',      'Discharge'),
-  ('wearable',       'Wearable'),
-  ('vaccination',    'Vaccination'),
-  ('other',          'Other'),
+  ('lab_result',   'Lab Results'),
+  ('prescription', 'Prescriptions'),
+  ('diagnosis',    'Diagnoses'),
+  ('imaging',      'Imaging'),
+  ('discharge',    'Discharge'),
+  ('wearable',     'Wearable'),
+  ('vaccination',  'Vaccination'),
+  ('other',        'Other'),
 ];
 
 const _datePresets = [
