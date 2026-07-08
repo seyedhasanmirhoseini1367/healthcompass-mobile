@@ -39,6 +39,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFf0f7ff),
+      appBar: AppBar(
+        title: const Text('AI & Analytics', style: TextStyle(fontWeight: FontWeight.w800)),
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF1e293b),
+        elevation: 0,
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF0ea5e9)))
           : _error
@@ -59,91 +65,59 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   ]));
 
   Widget _buildContent() {
-    final d      = _data!;
+    final d       = _data!;
     final hasData = (d['total_records'] ?? 0) > 0;
 
     return CustomScrollView(
       slivers: [
-        // ── Gradient header ──────────────────────────────────────────────────
-        SliverToBoxAdapter(child: _GradientHeader()),
-
-        // ── Hub cards ────────────────────────────────────────────────────────
+        // ── Quick navigation ──────────────────────────────────────────────
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
           sliver: SliverToBoxAdapter(
-            child: Column(children: [
-              _HubCard(
-                number: '1',
-                numberColor: const Color(0xFF6366f1),
-                icon: '🩺',
-                title: 'My Health',
-                description: 'Your personal biomarker trends, latest lab values, health alerts, and AI risk score — all in one place.',
-                tags: const [
-                  _Tag('Trend Analysis', Color(0xFFede9fe), Color(0xFF6d28d9)),
-                  _Tag('Lab Values',     Color(0xFFdcfce7), Color(0xFF15803d)),
-                  _Tag('AI Alerts',      Color(0xFFfef3c7), Color(0xFFb45309)),
-                ],
-                actionLabel: 'View below ↓',
-                actionColor: const Color(0xFF6366f1),
-                onTap: null, // scrolls naturally
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFe2e8f0)),
               ),
-              const SizedBox(height: 12),
-              _HubCard(
-                number: '2',
-                numberColor: const Color(0xFF0ea5e9),
-                icon: '🌍',
-                title: 'Population Insights',
-                description: 'Anonymised aggregate statistics across all users — query patterns, safety interventions, and knowledge base coverage.',
-                tags: const [
-                  _Tag('Anonymised',  Color(0xFFdbeafe), Color(0xFF1d4ed8)),
-                  _Tag('Usage Stats', Color(0xFFf0fdf4), Color(0xFF166534)),
-                  _Tag('Safety',      Color(0xFFfef9c3), Color(0xFF854d0e)),
-                ],
-                actionLabel: 'Open →',
-                actionColor: const Color(0xFF0ea5e9),
-                onTap: () => context.push('/population-insights'),
-              ),
-              const SizedBox(height: 12),
-              _HubCard(
-                number: '3',
-                numberColor: const Color(0xFF22c55e),
-                icon: '🤖',
-                title: 'AI Models',
-                description: 'Browse and run specialist AI models — from EEG seizure analysis to cardiovascular risk prediction.',
-                tags: const [
-                  _Tag('EEG',      Color(0xFFfce7f3), Color(0xFF9d174d)),
-                  _Tag('Cardio',   Color(0xFFffe4e6), Color(0xFF9f1239)),
-                  _Tag('Diabetes', Color(0xFFf0fdf4), Color(0xFF166534)),
-                ],
-                actionLabel: 'Browse →',
-                actionColor: const Color(0xFF22c55e),
-                onTap: () => context.push('/ai-models'),
-              ),
-              const SizedBox(height: 24),
-            ]),
+              child: Column(children: [
+                _NavRow(
+                  icon: Icons.person_rounded,
+                  color: const Color(0xFF6366f1),
+                  title: 'My Health',
+                  subtitle: 'Trends, lab values & alerts',
+                  isFirst: true,
+                  onTap: null,
+                ),
+                const Divider(height: 1, indent: 56),
+                _NavRow(
+                  icon: Icons.public_rounded,
+                  color: const Color(0xFF0ea5e9),
+                  title: 'Population Insights',
+                  subtitle: 'Anonymised statistics',
+                  onTap: () => context.push('/population-insights'),
+                ),
+                const Divider(height: 1, indent: 56),
+                _NavRow(
+                  icon: Icons.smart_toy_rounded,
+                  color: const Color(0xFF22c55e),
+                  title: 'AI Models',
+                  subtitle: 'Run clinical AI models',
+                  isLast: true,
+                  onTap: () => context.push('/ai-models'),
+                ),
+              ]),
+            ),
           ),
         ),
 
-        // ── Divider + My Health label ─────────────────────────────────────
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: Row(children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [Color(0xFF6366f1), Color(0xFF8b5cf6)]),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                  Text('🩺', style: TextStyle(fontSize: 13)),
-                  SizedBox(width: 6),
-                  Text('My Health', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
-                ]),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(child: Divider(color: Color(0xFFe2e8f0))),
-            ]),
+        // ── My Health label ───────────────────────────────────────────────
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
+          sliver: SliverToBoxAdapter(
+            child: Text('My Health Overview',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
+                    color: Color(0xFF64748b), letterSpacing: 0.4)),
           ),
         ),
 
@@ -567,151 +541,57 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   );
 }
 
-// ── Gradient header ───────────────────────────────────────────────────────────
+// ── Nav row ───────────────────────────────────────────────────────────────────
 
-class _GradientHeader extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF4f46e5), Color(0xFF6366f1), Color(0xFF0ea5e9)],
-        ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
-          child: Column(children: [
-            // Decorative dots
-            Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(5, (i) => Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 3),
-              child: Container(
-                width: 6, height: 6,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: i == 2 ? 0.6 : 0.2),
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ))),
-            const SizedBox(height: 16),
-            const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(Icons.psychology_rounded, color: Colors.white, size: 28),
-              SizedBox(width: 10),
-              Text(
-                'AI & Analytics',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.5,
-                ),
-              ),
-            ]),
-            const SizedBox(height: 8),
-            Text(
-              'Your personal health intelligence hub',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.8),
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ]),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Hub card ──────────────────────────────────────────────────────────────────
-
-class _Tag {
-  final String text;
-  final Color bg;
-  final Color fg;
-  const _Tag(this.text, this.bg, this.fg);
-}
-
-class _HubCard extends StatelessWidget {
-  final String number;
-  final Color  numberColor;
-  final String icon;
-  final String title;
-  final String description;
-  final List<_Tag> tags;
-  final String actionLabel;
-  final Color  actionColor;
+class _NavRow extends StatelessWidget {
+  final IconData icon;
+  final Color    color;
+  final String   title;
+  final String   subtitle;
+  final bool     isFirst;
+  final bool     isLast;
   final VoidCallback? onTap;
 
-  const _HubCard({
-    required this.number,
-    required this.numberColor,
+  const _NavRow({
     required this.icon,
+    required this.color,
     required this.title,
-    required this.description,
-    required this.tags,
-    required this.actionLabel,
-    required this.actionColor,
-    required this.onTap,
+    required this.subtitle,
+    this.isFirst = false,
+    this.isLast  = false,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFe2e8f0), width: 1.5),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 12, offset: const Offset(0, 3)),
-          ],
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          // Top row: number badge + icon + title
-          Row(children: [
-            Container(
-              width: 32, height: 32,
-              decoration: BoxDecoration(color: numberColor, borderRadius: BorderRadius.circular(10)),
-              child: Center(
-                child: Text(number, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15)),
-              ),
+      borderRadius: BorderRadius.vertical(
+        top:    isFirst ? const Radius.circular(14) : Radius.zero,
+        bottom: isLast  ? const Radius.circular(14) : Radius.zero,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        child: Row(children: [
+          Container(
+            width: 36, height: 36,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
             ),
-            const SizedBox(width: 10),
-            Text(icon, style: const TextStyle(fontSize: 22)),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Color(0xFF1e293b))),
-            ),
-          ]),
-          const SizedBox(height: 10),
-          // Description
-          Text(description,
-              style: const TextStyle(fontSize: 13, color: Color(0xFF64748b), height: 1.5)),
-          const SizedBox(height: 12),
-          // Tags
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: tags.map((t) => Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(color: t.bg, borderRadius: BorderRadius.circular(999)),
-              child: Text(t.text, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: t.fg)),
-            )).toList(),
+            child: Icon(icon, color: color, size: 18),
           ),
-          const SizedBox(height: 14),
-          // Action link
-          Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-            Text(actionLabel, style: TextStyle(
-              fontSize: 13, fontWeight: FontWeight.w700, color: actionColor)),
-          ]),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title,
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF1e293b))),
+            Text(subtitle,
+                style: const TextStyle(fontSize: 12, color: Color(0xFF94a3b8))),
+          ])),
+          if (onTap != null)
+            Icon(Icons.chevron_right_rounded, color: color.withValues(alpha: 0.5), size: 20)
+          else
+            Icon(Icons.keyboard_arrow_down_rounded, color: color.withValues(alpha: 0.5), size: 20),
         ]),
       ),
     );
