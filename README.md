@@ -15,3 +15,12 @@ A few resources to get you started if this is your first Flutter project:
 For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
+
+## Configuration
+
+The backend API base URL defaults to the production server. To point at a
+local backend instead, pass `API_BASE_URL` at build/run time:
+
+```
+flutter run --dart-define=API_BASE_URL=http://127.0.0.1:8000/api/v1
+```

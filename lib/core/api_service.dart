@@ -17,7 +17,12 @@ import '../models/user_profile.dart';
 import 'auth_state.dart';
 
 class ApiService {
-  static const _base    = 'https://healthcompass.hasanai.net/api/v1';
+  // Override at build/run time with:
+  //   flutter run --dart-define=API_BASE_URL=http://127.0.0.1:8000/api/v1
+  static const _base = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'https://healthcompass.hasanai.net/api/v1',
+  );
   static final _storage = const FlutterSecureStorage();
 
   static Future<Dio> _client({bool retry = true}) async {
