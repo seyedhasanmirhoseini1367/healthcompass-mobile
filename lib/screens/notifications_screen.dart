@@ -3,6 +3,7 @@ import '../core/api_service.dart';
 import '../core/error_handler.dart';
 import '../models/notification_item.dart';
 import '../widgets/error_retry_widget.dart';
+import '../widgets/skeleton_loader.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -61,15 +62,26 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF0ea5e9)))
+          ? const SkeletonListPlaceholder()
           : _error != null
               ? ErrorRetryWidget(message: _error!, onRetry: _load)
               : _items.isEmpty
-              ? const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.notifications_off_outlined, size: 56, color: Color(0xFFcbd5e1)),
-                  SizedBox(height: 12),
-                  Text('No notifications', style: TextStyle(color: Color(0xFF94a3b8), fontSize: 16)),
-                ]))
+              ? RefreshIndicator(
+                  onRefresh: _load,
+                  child: ListView(children: [
+                    SizedBox(
+                      height: 400,
+                      child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.notifications_off_outlined, size: 56, color: Color(0xFFcbd5e1)),
+                        const SizedBox(height: 12),
+                        const Text('No notifications', style: TextStyle(color: Color(0xFF94a3b8), fontSize: 16)),
+                        const SizedBox(height: 4),
+                        const Text("You're all caught up.",
+                            style: TextStyle(color: Color(0xFFcbd5e1), fontSize: 13)),
+                      ])),
+                    ),
+                  ]),
+                )
               : RefreshIndicator(
                   onRefresh: _load,
                   child: ListView.separated(

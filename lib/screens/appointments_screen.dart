@@ -4,6 +4,7 @@ import '../core/api_service.dart';
 import '../core/error_handler.dart';
 import '../models/appointment.dart';
 import '../widgets/error_retry_widget.dart';
+import '../widgets/skeleton_loader.dart';
 
 class AppointmentsScreen extends StatefulWidget {
   const AppointmentsScreen({super.key});
@@ -71,7 +72,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
         },
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const SkeletonListPlaceholder()
           : _error != null
               ? ErrorRetryWidget(message: _error!, onRetry: _load)
               : TabBarView(
@@ -149,16 +150,41 @@ class _AppointmentList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (appointments.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+      return RefreshIndicator(
+        onRefresh: () async => onRefresh(),
+        child: ListView(
           children: [
-            Icon(Icons.calendar_today_outlined,
-                size: 56, color: Colors.grey.shade300),
-            const SizedBox(height: 12),
-            Text(empty,
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
+            SizedBox(
+              height: 400,
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.calendar_today_outlined,
+                        size: 56, color: Colors.grey.shade300),
+                    const SizedBox(height: 12),
+                    Text(empty,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
+                    if (!isPast) ...[
+                      const SizedBox(height: 20),
+                      ElevatedButton.icon(
+                        onPressed: () => context.push<bool>('/appointments/create').then((ok) {
+                          if (ok == true) onRefresh();
+                        }),
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('Schedule an appointment'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0EA5E9),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       );

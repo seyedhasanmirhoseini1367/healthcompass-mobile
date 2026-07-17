@@ -4,6 +4,7 @@ import '../core/api_service.dart';
 import '../core/error_handler.dart';
 import '../models/ai_model.dart';
 import '../widgets/error_retry_widget.dart';
+import '../widgets/skeleton_loader.dart';
 
 class AIModelsScreen extends StatefulWidget {
   const AIModelsScreen({super.key});
@@ -77,7 +78,7 @@ class _AIModelsScreenState extends State<AIModelsScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFf0f7ff),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF22c55e)))
+          ? const SkeletonListPlaceholder()
           : _error != null
               ? ErrorRetryWidget(message: _error!, onRetry: _load)
               : RefreshIndicator(onRefresh: _load, child: _buildContent()),

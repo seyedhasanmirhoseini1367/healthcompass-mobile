@@ -4,6 +4,7 @@ import '../core/api_service.dart';
 import '../core/error_handler.dart';
 import '../models/prediction.dart';
 import '../widgets/error_retry_widget.dart';
+import '../widgets/skeleton_loader.dart';
 
 class PredictionsScreen extends StatefulWidget {
   const PredictionsScreen({super.key});
@@ -40,17 +41,28 @@ class _PredictionsScreenState extends State<PredictionsScreen> {
         elevation: 0,
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF0ea5e9)))
+          ? const SkeletonListPlaceholder()
           : _error != null
               ? ErrorRetryWidget(message: _error!, onRetry: _load)
               : _items.isEmpty
-                  ? const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.psychology_outlined, size: 56, color: Color(0xFFcbd5e1)),
-                      SizedBox(height: 12),
-                      Text('No predictions yet', style: TextStyle(color: Color(0xFF94a3b8), fontSize: 16)),
-                      SizedBox(height: 4),
-                      Text('Run an AI model to see predictions here',
+                  ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.psychology_outlined, size: 56, color: Color(0xFFcbd5e1)),
+                      const SizedBox(height: 12),
+                      const Text('No predictions yet', style: TextStyle(color: Color(0xFF94a3b8), fontSize: 16)),
+                      const SizedBox(height: 4),
+                      const Text('Run an AI model to see predictions here',
                           style: TextStyle(color: Color(0xFFcbd5e1), fontSize: 13)),
+                      const SizedBox(height: 20),
+                      ElevatedButton.icon(
+                        onPressed: () => context.push('/ai-models'),
+                        icon: const Icon(Icons.psychology_rounded, size: 18),
+                        label: const Text('Browse AI Models'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF22c55e),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
                     ]))
                   : RefreshIndicator(
                       onRefresh: _load,

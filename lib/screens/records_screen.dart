@@ -4,6 +4,7 @@ import '../core/api_service.dart';
 import '../core/error_handler.dart';
 import '../models/medical_record.dart';
 import '../widgets/error_retry_widget.dart';
+import '../widgets/skeleton_loader.dart';
 
 const _recordTypes = [
   ('', 'All'),
@@ -232,7 +233,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
         label: const Text('Upload', style: TextStyle(fontWeight: FontWeight.w700)),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF0ea5e9)))
+          ? const SkeletonListPlaceholder()
           : _error != null
               ? ErrorRetryWidget(message: _error!, onRetry: _load)
               : RefreshIndicator(
@@ -255,10 +256,31 @@ class _RecordsScreenState extends State<RecordsScreen> {
       Text(
         _hasFilters
             ? 'Try a different filter, date range, or search term'
-            : 'Tap Upload to add your first record',
+            : 'Add your first record to get started',
         textAlign: TextAlign.center,
         style: const TextStyle(color: Color(0xFFcbd5e1), fontSize: 13),
       ),
+      const SizedBox(height: 20),
+      if (_hasFilters)
+        OutlinedButton.icon(
+          onPressed: _clearFilters,
+          icon: const Icon(Icons.filter_alt_off_rounded, size: 16),
+          label: const Text('Clear filters'),
+        )
+      else
+        ElevatedButton.icon(
+          onPressed: () async {
+            final uploaded = await context.push<bool>('/upload');
+            if (uploaded == true) _load();
+          },
+          icon: const Icon(Icons.upload_file_rounded, size: 18),
+          label: const Text('Upload your first record'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF0ea5e9),
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        ),
     ])),
   ]);
 
