@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'core/api_service.dart';
@@ -108,6 +109,36 @@ final _router = GoRouter(
   ],
 );
 
+// Web's brand indigo (matches the gradients already used throughout the
+// screens, e.g. Color(0xFF6366f1)/Color(0xFF4338ca) in assistant_screen.dart).
+const _brandSeed = Color(0xFF4F46E5);
+
+ThemeData _buildTheme(Brightness brightness) {
+  final isDark = brightness == Brightness.dark;
+  final colorScheme = ColorScheme.fromSeed(seedColor: _brandSeed, brightness: brightness);
+  final base = ThemeData(colorScheme: colorScheme, useMaterial3: true, brightness: brightness);
+
+  return base.copyWith(
+    textTheme: GoogleFonts.interTextTheme(base.textTheme),
+    scaffoldBackgroundColor: isDark ? const Color(0xFF0f172a) : const Color(0xFFf0f7ff),
+    appBarTheme: AppBarTheme(
+      backgroundColor: isDark ? const Color(0xFF1e293b) : Colors.white,
+      foregroundColor: isDark ? Colors.white : const Color(0xFF1e293b),
+      elevation: 0,
+    ),
+    cardTheme: CardThemeData(
+      color: isDark ? const Color(0xFF1e293b) : Colors.white,
+      elevation: isDark ? 0 : 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    ),
+  );
+}
+
 class HealthCompassApp extends StatelessWidget {
   const HealthCompassApp({super.key});
 
@@ -117,11 +148,9 @@ class HealthCompassApp extends StatelessWidget {
       title: 'HealthCompass',
       debugShowCheckedModeBanner: false,
       routerConfig: _router,
-      theme: ThemeData(
-        colorSchemeSeed: const Color(0xFF0ea5e9),
-        useMaterial3: true,
-        fontFamily: 'Roboto',
-      ),
+      theme: _buildTheme(Brightness.light),
+      darkTheme: _buildTheme(Brightness.dark),
+      themeMode: ThemeMode.system,
     );
   }
 }
