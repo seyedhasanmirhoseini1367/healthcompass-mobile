@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/api_service.dart';
+import '../models/user_profile.dart';
 
 class EmergencyCardScreen extends StatefulWidget {
   const EmergencyCardScreen({super.key});
@@ -8,7 +9,7 @@ class EmergencyCardScreen extends StatefulWidget {
 }
 
 class _EmergencyCardScreenState extends State<EmergencyCardScreen> {
-  Map<String, dynamic>? _data;
+  EmergencyCard? _data;
   bool _loading = true;
   bool _editing = false;
 
@@ -36,10 +37,10 @@ class _EmergencyCardScreenState extends State<EmergencyCardScreen> {
       final data = await ApiService.emergencyCard();
       setState(() {
         _data = data;
-        _bloodTypeCtrl.text    = data['blood_type']              ?? '';
-        _allergiesCtrl.text    = data['allergies']               ?? '';
-        _contactNameCtrl.text  = data['emergency_contact_name']  ?? '';
-        _contactPhoneCtrl.text = data['emergency_contact_phone'] ?? '';
+        _bloodTypeCtrl.text    = data.bloodType;
+        _allergiesCtrl.text    = data.allergies;
+        _contactNameCtrl.text  = data.emergencyContactName;
+        _contactPhoneCtrl.text = data.emergencyContactPhone;
         _loading = false;
       });
     } catch (_) {
@@ -113,11 +114,11 @@ class _EmergencyCardScreenState extends State<EmergencyCardScreen> {
               style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 1)),
         ]),
         const SizedBox(height: 16),
-        Text(_data!['full_name'] ?? '',
+        Text(_data!.fullName,
             style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800)),
-        if ((_data!['date_of_birth'] ?? '').toString().isNotEmpty) ...[
+        if ((_data!.dateOfBirth ?? '').isNotEmpty) ...[
           const SizedBox(height: 4),
-          Text('DOB: ${_data!['date_of_birth']}',
+          Text('DOB: ${_data!.dateOfBirth}',
               style: const TextStyle(color: Colors.white70, fontSize: 14)),
         ],
       ]),
@@ -126,18 +127,18 @@ class _EmergencyCardScreenState extends State<EmergencyCardScreen> {
 
     _infoCard([
       _infoRow(Icons.bloodtype_rounded, 'Blood Type',
-          (_data!['blood_type'] ?? '').isEmpty ? 'Not set' : _data!['blood_type'],
-          valueColor: _data!['blood_type']?.isNotEmpty == true ? const Color(0xFFef4444) : null),
+          _data!.bloodType.isEmpty ? 'Not set' : _data!.bloodType,
+          valueColor: _data!.bloodType.isNotEmpty ? const Color(0xFFef4444) : null),
       _infoRow(Icons.warning_amber_rounded, 'Allergies',
-          (_data!['allergies'] ?? '').isEmpty ? 'None listed' : _data!['allergies']),
+          _data!.allergies.isEmpty ? 'None listed' : _data!.allergies),
     ]),
     const SizedBox(height: 14),
 
     _infoCard([
       _infoRow(Icons.phone_in_talk_rounded, 'Emergency Contact',
-          (_data!['emergency_contact_name'] ?? '').isEmpty ? 'Not set' : _data!['emergency_contact_name']),
+          _data!.emergencyContactName.isEmpty ? 'Not set' : _data!.emergencyContactName),
       _infoRow(Icons.phone_rounded, 'Contact Phone',
-          (_data!['emergency_contact_phone'] ?? '').isEmpty ? 'Not set' : _data!['emergency_contact_phone']),
+          _data!.emergencyContactPhone.isEmpty ? 'Not set' : _data!.emergencyContactPhone),
     ]),
     const SizedBox(height: 14),
 

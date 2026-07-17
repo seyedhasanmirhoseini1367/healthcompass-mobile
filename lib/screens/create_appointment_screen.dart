@@ -2,9 +2,10 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../core/api_service.dart';
+import '../models/appointment.dart';
 
 class CreateAppointmentScreen extends StatefulWidget {
-  final Map<String, dynamic>? existing;
+  final Appointment? existing;
   const CreateAppointmentScreen({super.key, this.existing});
 
   @override
@@ -32,16 +33,15 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
     super.initState();
     final e = widget.existing;
     if (e != null) {
-      _title.text  = e['title']       ?? '';
-      _doctor.text = e['doctor_name'] ?? '';
-      _loc.text    = e['location']    ?? '';
-      _notes.text  = e['notes']       ?? '';
-      _r24h = e['remind_24h'] ?? true;
-      _r3h  = e['remind_3h']  ?? false;
-      _r2h  = e['remind_2h']  ?? false;
-      _r1h  = e['remind_1h']  ?? true;
-      final raw = e['appointment_datetime'];
-      if (raw != null) _pickedDt = DateTime.tryParse(raw)?.toLocal();
+      _title.text  = e.title;
+      _doctor.text = e.doctorName;
+      _loc.text    = e.location;
+      _notes.text  = e.notes;
+      _r24h = e.remind24h;
+      _r3h  = e.remind3h;
+      _r2h  = e.remind2h;
+      _r1h  = e.remind1h;
+      _pickedDt = DateTime.tryParse(e.appointmentDatetime)?.toLocal();
     }
   }
 
@@ -93,7 +93,7 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
         'remind_1h':  _r1h,
       };
       if (_isEdit) {
-        await ApiService.updateAppointment(widget.existing!['id'], data);
+        await ApiService.updateAppointment(widget.existing!.id, data);
       } else {
         await ApiService.createAppointment(data);
       }

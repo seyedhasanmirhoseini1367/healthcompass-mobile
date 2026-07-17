@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../core/api_service.dart';
+import '../models/user_profile.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -9,7 +10,7 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  Map<String, dynamic>? _user;
+  UserProfile? _user;
   bool _loading = true;
 
   @override
@@ -85,14 +86,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _avatarCard() {
-    final name   = _user?['full_name'] ?? _user?['username'] ?? 'User';
-    final email  = _user?['email'] ?? '';
-    final role   = _user?['role_display'] ?? 'Patient';
+    final name   = (_user?.fullName.isNotEmpty ?? false) ? _user!.fullName
+        : (_user?.username.isNotEmpty ?? false) ? _user!.username : 'User';
+    final email  = _user?.email ?? '';
+    final role   = (_user?.roleDisplay.isNotEmpty ?? false) ? _user!.roleDisplay : 'Patient';
     final initials = name.isNotEmpty
         ? name.trim().split(' ').map((w) => w.isNotEmpty ? w[0] : '').take(2).join().toUpperCase()
         : '?';
 
-    final picUrl = _user?['profile_picture']?.toString() ?? '';
+    final picUrl = _user?.profilePicture ?? '';
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -129,11 +131,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _infoCard() => _card('Account Info', [
-    _infoRow(Icons.email_outlined,  'Email',    _user?['email']    ?? '—'),
-    _infoRow(Icons.badge_outlined,  'Username', _user?['username'] ?? '—'),
+    _infoRow(Icons.email_outlined,  'Email',    (_user?.email.isNotEmpty ?? false) ? _user!.email : '—'),
+    _infoRow(Icons.badge_outlined,  'Username', (_user?.username.isNotEmpty ?? false) ? _user!.username : '—'),
     _infoRow(Icons.verified_user,   'Status',
-        _user?['is_approved'] == true ? 'Approved' : 'Pending Approval',
-        valueColor: _user?['is_approved'] == true ? const Color(0xFF22c55e) : const Color(0xFFf59e0b)),
+        (_user?.isApproved ?? false) ? 'Approved' : 'Pending Approval',
+        valueColor: (_user?.isApproved ?? false) ? const Color(0xFF22c55e) : const Color(0xFFf59e0b)),
   ]);
 
   Widget _actionsCard() => _card('Settings', [

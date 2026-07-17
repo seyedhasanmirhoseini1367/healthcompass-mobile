@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/api_service.dart';
+import '../models/notification_item.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -8,7 +9,7 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  List<dynamic> _items = [];
+  List<NotificationItem> _items = [];
   bool _loading = true;
 
   @override
@@ -25,20 +26,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Future<void> _markAllRead() async {
-    final unread = _items.where((n) => n['is_read'] == false).toList();
+    final unread = _items.where((n) => !n.isRead).toList();
     for (final n in unread) {
-      await ApiService.markNotificationRead(n['id'].toString());
+      await ApiService.markNotificationRead(n.id);
     }
     setState(() {
-      for (final n in _items) {
-        n['is_read'] = true;
-      }
+      _items = _items.map((n) => n.copyWith(isRead: true)).toList();
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final unreadCount = _items.where((n) => n['is_read'] == false).length;
+    final unreadCount = _items.where((n) => !n.isRead).length;
     return Scaffold(
       backgroundColor: const Color(0xFFf0f7ff),
       appBar: AppBar(
@@ -74,9 +73,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  Widget _card(dynamic item) {
-    final isRead  = item['is_read'] == true;
-    final type    = item['type'] ?? 'system';
+  Widget _card(NotificationItem item) {
+    final isRead  = item.isRead;
+    final type    = item.type.isEmpty ? 'system' : item.type;
 
     final iconMap = {
       'health_alert':  Icons.warning_amber_rounded,
@@ -98,8 +97,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       opacity: isRead ? 0.55 : 1.0,
       child: InkWell(
         onTap: isRead ? null : () async {
-          await ApiService.markNotificationRead(item['id'].toString());
-          setState(() => item['is_read'] = true);
+          await ApiService.markNotificationRead(item.id);
+          setState(() {
+            final idx = _items.indexWhere((n) => n.id == item.id);
+            if (idx >= 0) _items[idx] = _items[idx].copyWith(isRead: true);
+          });
         },
         borderRadius: BorderRadius.circular(12),
         child: Container(
@@ -123,7 +125,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
-                Expanded(child: Text(item['title'] ?? '',
+                Expanded(child: Text(item.title,
                     style: TextStyle(
                       fontWeight: isRead ? FontWeight.w500 : FontWeight.w700,
                       fontSize: 14,
@@ -134,11 +136,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
               ]),
               const SizedBox(height: 4),
-              Text(item['message'] ?? '',
+              Text(item.message,
                   maxLines: 2, overflow: TextOverflow.ellipsis,
                   style: const TextStyle(color: Color(0xFF64748b), fontSize: 12, height: 1.4)),
               const SizedBox(height: 6),
-              Text(_timeAgo(item['created_at']),
+              Text(_timeAgo(item.createdAt),
                   style: const TextStyle(color: Color(0xFFcbd5e1), fontSize: 11)),
             ])),
           ]),

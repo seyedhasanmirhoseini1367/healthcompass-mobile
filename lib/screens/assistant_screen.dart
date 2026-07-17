@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../core/api_service.dart';
 import '../models/chat_event.dart';
+import '../models/chat_session.dart';
 
 /// One rendered chat bubble. Mutable so streamed tokens/sources/chart can be
 /// appended in place without rebuilding the whole message list.
@@ -41,7 +42,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
   bool _sending = false;
 
   // Sessions sidebar
-  List<Map<String, dynamic>> _sessions    = [];
+  List<ChatSession> _sessions    = [];
   bool _sessionsLoading = false;
 
   @override
@@ -52,9 +53,9 @@ class _AssistantScreenState extends State<AssistantScreen> {
   Future<void> _loadSessions() async {
     setState(() => _sessionsLoading = true);
     try {
-      final data = await ApiService.chatSessions();
+      final sessions = await ApiService.chatSessions();
       setState(() {
-        _sessions = List<Map<String, dynamic>>.from(data['sessions'] ?? []);
+        _sessions = sessions;
         _sessionsLoading = false;
       });
     } catch (_) {
@@ -65,15 +66,14 @@ class _AssistantScreenState extends State<AssistantScreen> {
   Future<void> _openSession(String id, String title) async {
     setState(() { _sending = true; });
     try {
-      final data = await ApiService.chatSessionDetail(id);
-      final msgs = data['messages'] as List? ?? [];
+      final detail = await ApiService.chatSessionDetail(id);
       setState(() {
         _sessionId    = id;
         _sessionTitle = title;
         _messages.clear();
-        for (final m in msgs) {
-          _messages.add(_ChatMsg(isUser: true,  content: (m['query'] ?? '').toString()));
-          _messages.add(_ChatMsg(isUser: false, content: (m['response'] ?? '').toString()));
+        for (final m in detail.messages) {
+          _messages.add(_ChatMsg(isUser: true,  content: m.query));
+          _messages.add(_ChatMsg(isUser: false, content: m.response));
         }
         _sending = false;
       });
@@ -687,7 +687,7 @@ class _TypingDotsState extends State<_TypingDots> with SingleTickerProviderState
 // ── History bottom sheet ──────────────────────────────────────────────────────
 
 class _HistorySheet extends StatefulWidget {
-  final List<Map<String, dynamic>> sessions;
+  final List<ChatSession> sessions;
   final bool   loading;
   final String? currentSessionId;
   final VoidCallback onRefresh;
@@ -710,7 +710,7 @@ class _HistorySheet extends StatefulWidget {
 }
 
 class _HistorySheetState extends State<_HistorySheet> {
-  late List<Map<String, dynamic>> _local;
+  late List<ChatSession> _local;
 
   @override
   void initState() {
@@ -727,7 +727,7 @@ class _HistorySheetState extends State<_HistorySheet> {
   }
 
   Future<void> _delete(String id) async {
-    setState(() => _local.removeWhere((s) => s['id']?.toString() == id));
+    setState(() => _local.removeWhere((s) => s.id == id));
     await widget.onDelete(id);
   }
 
@@ -770,8 +770,8 @@ class _HistorySheetState extends State<_HistorySheet> {
     );
     if (newTitle == null || newTitle.isEmpty || newTitle == currentTitle) return;
     setState(() {
-      final idx = _local.indexWhere((s) => s['id']?.toString() == id);
-      if (idx >= 0) _local[idx] = {..._local[idx], 'title': newTitle};
+      final idx = _local.indexWhere((s) => s.id == id);
+      if (idx >= 0) _local[idx] = _local[idx].copyWith(title: newTitle);
     });
     try { await ApiService.renameChatSession(id, newTitle); } catch (_) {}
   }
@@ -862,10 +862,10 @@ class _HistorySheetState extends State<_HistorySheet> {
                           itemCount: _local.length,
                           itemBuilder: (_, i) {
                             final s         = _local[i];
-                            final id        = s['id']?.toString() ?? '';
-                            final title     = s['title']?.toString() ?? 'Chat';
-                            final count     = (s['message_count'] ?? 0) as int;
-                            final updated   = _formatDate(s['updated_at']?.toString());
+                            final id        = s.id;
+                            final title     = s.title;
+                            final count     = s.messageCount;
+                            final updated   = _formatDate(s.updatedAt);
                             final isCurrent = id == widget.currentSessionId;
 
                             return Container(

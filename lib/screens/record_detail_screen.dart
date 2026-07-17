@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../core/api_service.dart';
+import '../models/medical_record.dart';
 
 class RecordDetailScreen extends StatefulWidget {
   final String recordId;
@@ -10,7 +11,7 @@ class RecordDetailScreen extends StatefulWidget {
 }
 
 class _RecordDetailScreenState extends State<RecordDetailScreen> {
-  Map<String, dynamic>? _record;
+  MedicalRecord? _record;
   bool _loading = true;
 
   @override
@@ -55,7 +56,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFf0f7ff),
       appBar: AppBar(
-        title: Text(_record?['title'] ?? 'Record Detail',
+        title: Text(_record?.title ?? 'Record Detail',
             style: const TextStyle(fontWeight: FontWeight.w800)),
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF1e293b),
@@ -79,25 +80,24 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                   children: [
                     _headerCard(),
                     const SizedBox(height: 14),
-                    if ((_record!['notes'] ?? '').toString().isNotEmpty) ...[
-                      _textSection('Notes', _record!['notes']),
+                    if (_record!.notes.isNotEmpty) ...[
+                      _textSection('Notes', _record!.notes),
                       const SizedBox(height: 14),
                     ],
-                    if ((_record!['lab_values'] as List? ?? []).isNotEmpty) ...[
+                    if (_record!.labValues.isNotEmpty) ...[
                       _labValuesSection(),
                       const SizedBox(height: 14),
                     ],
-                    if ((_record!['wearable_points'] as List? ?? []).isNotEmpty) ...[
+                    if (_record!.wearablePoints.isNotEmpty) ...[
                       _wearableSection(),
                       const SizedBox(height: 14),
                     ],
-                    if (_record!['parsed_data'] != null &&
-                        (_record!['parsed_data'] as Map).isNotEmpty) ...[
+                    if (_record!.parsedData.isNotEmpty) ...[
                       _parsedDataSection(),
                       const SizedBox(height: 14),
                     ],
-                    if ((_record!['raw_text'] ?? '').toString().isNotEmpty) ...[
-                      _textSection('Extracted Text', _record!['raw_text']),
+                    if ((_record!.rawText ?? '').isNotEmpty) ...[
+                      _textSection('Extracted Text', _record!.rawText!),
                     ],
                     const SizedBox(height: 24),
                   ],
@@ -113,9 +113,9 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     ),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        Expanded(child: Text(_record!['title'] ?? '',
+        Expanded(child: Text(_record!.title,
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1e293b)))),
-        if (_record!['is_flagged'] == true)
+        if (_record!.isFlagged)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(color: const Color(0xFFfee2e2), borderRadius: BorderRadius.circular(20)),
@@ -127,11 +127,11 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
           ),
       ]),
       const SizedBox(height: 12),
-      _metaRow(Icons.category_outlined, 'Type',  _record!['record_type_display'] ?? ''),
+      _metaRow(Icons.category_outlined, 'Type',  _record!.recordTypeDisplay),
       _metaRow(Icons.calendar_today_outlined, 'Date',
-          _record!['record_date'] ?? _record!['uploaded_at']?.toString().split('T').first ?? ''),
+          _record!.recordDate ?? _record!.uploadedAt?.split('T').first ?? ''),
       _metaRow(Icons.cloud_upload_outlined, 'Uploaded',
-          _record!['uploaded_at']?.toString().split('T').first ?? ''),
+          _record!.uploadedAt?.split('T').first ?? ''),
     ]),
   );
 
@@ -146,11 +146,10 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
 
   // ── Lab Values ──────────────────────────────────────────────────────────────
   Widget _labValuesSection() {
-    final labs = List<Map<String, dynamic>>.from(
-        (_record!['lab_values'] as List).map((e) => Map<String, dynamic>.from(e)));
-    final abnormal  = labs.where((l) => l['is_abnormal'] == true).toList();
-    final critical  = labs.where((l) => l['is_critical'] == true).toList();
-    final normal    = labs.where((l) => l['is_abnormal'] != true).toList();
+    final labs = _record!.labValues;
+    final abnormal  = labs.where((l) => l.isAbnormal).toList();
+    final critical  = labs.where((l) => l.isCritical).toList();
+    final normal    = labs.where((l) => !l.isAbnormal).toList();
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -171,15 +170,15 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
         ]),
         const SizedBox(height: 12),
         // Critical first, then abnormal, then normal
-        ...[ ...critical, ...abnormal.where((l) => l['is_critical'] != true), ...normal ]
+        ...[ ...critical, ...abnormal.where((l) => !l.isCritical), ...normal ]
             .map((lab) => _labRow(lab)),
       ]),
     );
   }
 
-  Widget _labRow(Map<String, dynamic> lab) {
-    final isCritical = lab['is_critical'] == true;
-    final isAbnormal = lab['is_abnormal'] == true;
+  Widget _labRow(ParsedLabValue lab) {
+    final isCritical = lab.isCritical;
+    final isAbnormal = lab.isAbnormal;
     final color = isCritical ? const Color(0xFFef4444)
         : isAbnormal ? const Color(0xFFf59e0b)
         : const Color(0xFF22c55e);
@@ -197,14 +196,14 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
             decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
         const SizedBox(width: 10),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(lab['parameter_name'] ?? '',
+          Text(lab.parameterName,
               style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF1e293b))),
-          if ((lab['reference_range'] ?? '').toString().isNotEmpty)
-            Text('Ref: ${lab['reference_range']}',
+          if ((lab.referenceRange ?? '').isNotEmpty)
+            Text('Ref: ${lab.referenceRange}',
                 style: const TextStyle(color: Color(0xFF94a3b8), fontSize: 11)),
         ])),
         Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-          Text('${lab['value']} ${lab['unit'] ?? ''}',
+          Text('${lab.value} ${lab.unit ?? ''}',
               style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: color)),
           if (isCritical)
             const Text('CRITICAL', style: TextStyle(color: Color(0xFFef4444), fontSize: 10, fontWeight: FontWeight.w900))
@@ -217,13 +216,12 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
 
   // ── Wearable Points ─────────────────────────────────────────────────────────
   Widget _wearableSection() {
-    final points = List<Map<String, dynamic>>.from(
-        (_record!['wearable_points'] as List).map((e) => Map<String, dynamic>.from(e)));
+    final points = _record!.wearablePoints;
 
     // Group by metric
-    final Map<String, List<Map<String, dynamic>>> grouped = {};
+    final Map<String, List<WearableDataPoint>> grouped = {};
     for (final p in points) {
-      final key = p['metric_display'] ?? p['metric'] ?? 'Other';
+      final key = (p.metricDisplay?.isNotEmpty ?? false) ? p.metricDisplay! : (p.metric.isNotEmpty ? p.metric : 'Other');
       grouped.putIfAbsent(key, () => []).add(p);
     }
 
@@ -241,11 +239,11 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
         ]),
         const SizedBox(height: 12),
         ...grouped.entries.map((e) {
-          final vals = e.value.map((p) => (p['value'] as num).toDouble()).toList();
+          final vals = e.value.map((p) => p.value ?? 0.0).toList();
           final avg  = vals.reduce((a, b) => a + b) / vals.length;
           final min  = vals.reduce((a, b) => a < b ? a : b);
           final max  = vals.reduce((a, b) => a > b ? a : b);
-          final unit = e.value.first['unit'] ?? '';
+          final unit = e.value.first.unit ?? '';
           return Container(
             margin: const EdgeInsets.only(bottom: 10),
             padding: const EdgeInsets.all(12),
@@ -285,7 +283,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
 
   // ── Parsed Data ─────────────────────────────────────────────────────────────
   Widget _parsedDataSection() {
-    final data = Map<String, dynamic>.from(_record!['parsed_data'] as Map);
+    final data = _record!.parsedData;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16),

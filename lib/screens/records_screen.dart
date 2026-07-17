@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../core/api_service.dart';
+import '../models/medical_record.dart';
 
 const _recordTypes = [
   ('', 'All'),
@@ -29,7 +30,7 @@ class RecordsScreen extends StatefulWidget {
 }
 
 class _RecordsScreenState extends State<RecordsScreen> {
-  List<dynamic> _records   = [];
+  List<MedicalRecord> _records = [];
   bool   _loading          = true;
   String? _error;
   String _selectedType     = '';
@@ -272,8 +273,8 @@ class _RecordsScreenState extends State<RecordsScreen> {
     itemBuilder: (_, i) => _recordCard(_records[i]),
   );
 
-  Widget _recordCard(Map record) => InkWell(
-    onTap: () => context.push('/records/${record['id']}'),
+  Widget _recordCard(MedicalRecord record) => InkWell(
+    onTap: () => context.push('/records/${record.id}'),
     borderRadius: BorderRadius.circular(12),
     child: Container(
       padding: const EdgeInsets.all(14),
@@ -284,25 +285,25 @@ class _RecordsScreenState extends State<RecordsScreen> {
       child: Row(children: [
         Container(width: 4, height: 52,
             decoration: BoxDecoration(
-              color: record['is_flagged'] == true
+              color: record.isFlagged
                   ? const Color(0xFFef4444) : const Color(0xFF0ea5e9),
               borderRadius: BorderRadius.circular(4),
             )),
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(record['title'] ?? 'Untitled',
+          Text(record.title.isEmpty ? 'Untitled' : record.title,
               style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF1e293b))),
           const SizedBox(height: 3),
-          Text(record['record_type_display'] ?? '',
+          Text(record.recordTypeDisplay,
               style: const TextStyle(color: Color(0xFF64748b), fontSize: 12)),
-          if ((record['record_date'] ?? '').toString().isNotEmpty) ...[
+          if ((record.recordDate ?? '').isNotEmpty) ...[
             const SizedBox(height: 2),
-            Text(record['record_date'].toString(),
+            Text(record.recordDate!,
                 style: const TextStyle(color: Color(0xFFcbd5e1), fontSize: 11)),
           ],
         ])),
         Row(mainAxisSize: MainAxisSize.min, children: [
-          if (record['is_flagged'] == true)
+          if (record.isFlagged)
             const Icon(Icons.flag_rounded, color: Color(0xFFef4444), size: 16),
           const SizedBox(width: 4),
           const Icon(Icons.chevron_right, color: Color(0xFFcbd5e1), size: 20),

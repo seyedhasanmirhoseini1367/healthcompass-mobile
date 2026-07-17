@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../core/api_service.dart';
+import '../models/ai_model.dart';
+import '../models/medical_record.dart';
 
 class RunModelScreen extends StatefulWidget {
   final String modelSlug;
@@ -10,7 +12,7 @@ class RunModelScreen extends StatefulWidget {
 }
 
 class _RunModelScreenState extends State<RunModelScreen> {
-  Map<String, dynamic>? _model;
+  AIModel? _model;
   bool _loadingModel = true;
   bool _running      = false;
   String? _error;
@@ -34,7 +36,7 @@ class _RunModelScreenState extends State<RunModelScreen> {
     try {
       final data = await ApiService.aiModelDetail(widget.modelSlug);
       setState(() { _model = data; _loadingModel = false; });
-      final schema = (data['input_schema'] as Map? ?? {});
+      final schema = data.inputSchema ?? {};
       for (final key in schema.keys) {
         _controllers[key] = TextEditingController();
       }
@@ -53,9 +55,8 @@ class _RunModelScreenState extends State<RunModelScreen> {
       }
       final result = await ApiService.runModel(widget.modelSlug, inputData);
       if (mounted) {
-        final predId = result['id']?.toString();
-        if (predId != null) {
-          context.pushReplacement('/predictions/$predId');
+        if (result.id.isNotEmpty) {
+          context.pushReplacement('/predictions/${result.id}');
         } else {
           setState(() { _error = 'Prediction created but no ID returned.'; _running = false; });
         }
@@ -83,22 +84,22 @@ class _RunModelScreenState extends State<RunModelScreen> {
     );
   }
 
-  Future<void> _fillFromRecord(Map<String, dynamic> record) async {
+  Future<void> _fillFromRecord(MedicalRecord record) async {
     try {
-      final detail = await ApiService.recordDetail(record['id'].toString());
-      final labValues = (detail['lab_values'] as List?) ?? [];
-      final schema = (_model!['input_schema'] as Map? ?? {});
+      final detail = await ApiService.recordDetail(record.id);
+      final labValues = detail.labValues;
+      final schema = _model!.inputSchema ?? {};
       int filled = 0;
 
       for (final key in schema.keys) {
         final fieldNorm = key.toString().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
         for (final lv in labValues) {
-          final labNorm = (lv['parameter_name'] ?? '').toString()
+          final labNorm = lv.parameterName
               .toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
           if (labNorm == fieldNorm ||
               labNorm.contains(fieldNorm) ||
               fieldNorm.contains(labNorm)) {
-            final num = double.tryParse(lv['value']?.toString() ?? '');
+            final num = double.tryParse(lv.value);
             if (num != null) {
               _controllers[key]?.text = num == num.truncateToDouble()
                   ? num.toInt().toString()
@@ -113,7 +114,7 @@ class _RunModelScreenState extends State<RunModelScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(filled > 0
-              ? 'Filled $filled field${filled > 1 ? "s" : ""} from "${record['title']}"'
+              ? 'Filled $filled field${filled > 1 ? "s" : ""} from "${record.title}"'
               : 'No matching fields found in this record'),
           backgroundColor: filled > 0 ? const Color(0xFF16a34a) : const Color(0xFFb45309),
           behavior: SnackBarBehavior.floating,
@@ -168,16 +169,16 @@ class _RunModelScreenState extends State<RunModelScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final cat       = _model?['category'] ?? 'general';
+    final cat       = (_model?.category.isEmpty ?? true) ? 'general' : _model!.category;
     final color     = _catColor(cat);
-    final schema    = (_model?['input_schema'] as Map? ?? {});
-    final inputType = _model?['input_type'] ?? 'tabular';
+    final schema    = _model?.inputSchema ?? {};
+    final inputType = (_model?.inputType.isEmpty ?? true) ? 'tabular' : _model!.inputType;
     final isTabular = inputType == 'tabular';
 
     return Scaffold(
       backgroundColor: const Color(0xFFf0f7ff),
       appBar: AppBar(
-        title: Text(_model?['name'] ?? 'Run Model',
+        title: Text((_model?.name.isEmpty ?? true) ? 'Run Model' : _model!.name,
             style: const TextStyle(fontWeight: FontWeight.w800)),
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF1e293b),
@@ -199,8 +200,8 @@ class _RunModelScreenState extends State<RunModelScreen> {
   }
 
   Widget _buildForm(Color color) {
-    final schema    = (_model!['input_schema'] as Map? ?? {});
-    final inputType = _model!['input_type'] ?? 'tabular';
+    final schema    = _model!.inputSchema ?? {};
+    final inputType = _model!.inputType.isEmpty ? 'tabular' : _model!.inputType;
     final isTabular = inputType == 'tabular';
 
     if (!isTabular) {
@@ -214,7 +215,7 @@ class _RunModelScreenState extends State<RunModelScreen> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: color)),
             const SizedBox(height: 10),
             Text(
-              'This model requires a ${_model!['input_type_display'] ?? 'file'} upload.\n'
+              'This model requires a ${_model!.inputTypeDisplay.isEmpty ? 'file' : _model!.inputTypeDisplay} upload.\n'
               '${(inputType == 'parquet' || inputType == 'eeg_csv') ? 'Use the EEG Seizure Analysis screen for EEG files.' : 'Please use the website to run this model.'}',
               textAlign: TextAlign.center,
               style: const TextStyle(color: Color(0xFF64748b), height: 1.5),
@@ -257,14 +258,14 @@ class _RunModelScreenState extends State<RunModelScreen> {
               border: Border.all(color: color.withValues(alpha: 0.25)),
             ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(_model!['name'] ?? '',
+              Text(_model!.name,
                   style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
               const SizedBox(height: 4),
-              Text(_model!['category_display'] ?? '',
+              Text(_model!.categoryDisplay,
                   style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 12)),
-              if ((_model!['description'] ?? '').toString().isNotEmpty) ...[
+              if (_model!.description.isNotEmpty) ...[
                 const SizedBox(height: 8),
-                Text(_model!['description'].toString(),
+                Text(_model!.description,
                     style: const TextStyle(color: Color(0xFF475569), fontSize: 13, height: 1.5)),
               ],
             ]),
@@ -379,14 +380,14 @@ class _RunModelScreenState extends State<RunModelScreen> {
 // ── Record picker bottom sheet ────────────────────────────────────────────────
 
 class _RecordPickerSheet extends StatefulWidget {
-  final void Function(Map<String, dynamic>) onRecordSelected;
+  final void Function(MedicalRecord) onRecordSelected;
   const _RecordPickerSheet({required this.onRecordSelected});
   @override
   State<_RecordPickerSheet> createState() => _RecordPickerSheetState();
 }
 
 class _RecordPickerSheetState extends State<_RecordPickerSheet> {
-  List<dynamic>? _records;
+  List<MedicalRecord>? _records;
   bool _loading = true;
   String? _error;
 
@@ -465,15 +466,15 @@ class _RecordPickerSheetState extends State<_RecordPickerSheet> {
                                 const Divider(height: 1, indent: 56),
                             itemBuilder: (_, i) {
                               final r = _records![i];
-                              final date = r['record_date'] ??
-                                  r['uploaded_at']?.toString().substring(0, 10) ?? '';
+                              final date = r.recordDate ??
+                                  r.uploadedAt?.substring(0, 10) ?? '';
                               return ListTile(
                                 leading: const CircleAvatar(
                                   backgroundColor: Color(0xFFe0f2fe),
                                   child: Icon(Icons.science_rounded,
                                       color: Color(0xFF0284c7), size: 18),
                                 ),
-                                title: Text(r['title'] ?? 'Untitled',
+                                title: Text(r.title.isEmpty ? 'Untitled' : r.title,
                                     style: const TextStyle(
                                         fontWeight: FontWeight.w600, fontSize: 14)),
                                 subtitle: date.isNotEmpty
@@ -483,8 +484,7 @@ class _RecordPickerSheetState extends State<_RecordPickerSheet> {
                                     : null,
                                 trailing: const Icon(Icons.arrow_forward_ios_rounded,
                                     size: 14, color: Color(0xFF94a3b8)),
-                                onTap: () => widget.onRecordSelected(
-                                    Map<String, dynamic>.from(r)),
+                                onTap: () => widget.onRecordSelected(r),
                               );
                             },
                           ),

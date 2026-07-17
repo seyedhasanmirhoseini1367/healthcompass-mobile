@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../core/api_service.dart';
+import '../models/ai_model.dart';
 
 class AIModelsScreen extends StatefulWidget {
   const AIModelsScreen({super.key});
@@ -9,7 +10,7 @@ class AIModelsScreen extends StatefulWidget {
 }
 
 class _AIModelsScreenState extends State<AIModelsScreen> {
-  List<dynamic> _models  = [];
+  List<AIModel> _models  = [];
   bool _loading = true;
   bool _error   = false;
   String _filterCat = 'all';
@@ -59,12 +60,12 @@ class _AIModelsScreenState extends State<AIModelsScreen> {
   IconData _catIcon(String cat)  => _catIcons[cat]  ?? Icons.science_rounded;
   String   _catEmoji(String cat) => _catEmojis[cat] ?? '🔬';
 
-  List<dynamic> get _filtered => _filterCat == 'all'
+  List<AIModel> get _filtered => _filterCat == 'all'
       ? _models
-      : _models.where((m) => m['category'] == _filterCat).toList();
+      : _models.where((m) => m.category == _filterCat).toList();
 
   List<String> get _categories {
-    final cats = _models.map((m) => m['category']?.toString() ?? 'other').toSet().toList();
+    final cats = _models.map((m) => m.category.isEmpty ? 'other' : m.category).toSet().toList();
     cats.sort();
     return cats;
   }
@@ -150,9 +151,10 @@ class _AIModelsScreenState extends State<AIModelsScreen> {
               delegate: SliverChildBuilderDelegate(
                 (ctx, i) => Padding(
                   padding: const EdgeInsets.only(bottom: 14),
-                  child: _ModelCard(model: filtered[i], catColor: _catColor(filtered[i]['category'] ?? 'other'),
-                      catIcon: _catIcon(filtered[i]['category'] ?? 'other'),
-                      catEmoji: _catEmoji(filtered[i]['category'] ?? 'other')),
+                  child: _ModelCard(model: filtered[i],
+                      catColor: _catColor(filtered[i].category.isEmpty ? 'other' : filtered[i].category),
+                      catIcon: _catIcon(filtered[i].category.isEmpty ? 'other' : filtered[i].category),
+                      catEmoji: _catEmoji(filtered[i].category.isEmpty ? 'other' : filtered[i].category)),
                 ),
                 childCount: filtered.length,
               ),
@@ -212,7 +214,7 @@ class _AIModelsScreenState extends State<AIModelsScreen> {
 
   Widget _buildStatsStrip() {
     final cats = _categories;
-    final inputTypes = _models.map((m) => m['input_type']?.toString()).toSet();
+    final inputTypes = _models.map((m) => m.inputType).toSet();
     return Row(children: [
       _StatChip(value: '${_models.length}', label: 'Models',     color: const Color(0xFF22c55e)),
       const SizedBox(width: 10),
@@ -297,7 +299,7 @@ class _StatChip extends StatelessWidget {
 // ── Model card ────────────────────────────────────────────────────────────────
 
 class _ModelCard extends StatelessWidget {
-  final Map      model;
+  final AIModel  model;
   final Color    catColor;
   final IconData catIcon;
   final String   catEmoji;
@@ -311,14 +313,13 @@ class _ModelCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name     = model['name'] ?? '';
-    final catLabel = model['category_display'] ?? '';
-    final desc     = model['description']?.toString() ?? '';
-    final runs     = model['run_count'] ?? 0;
-    final inputType = model['input_type'] ?? '';
-    final inputLabel = model['input_type_display'] ?? inputType;
-    final slug     = model['slug'] ?? '';
-    final accuracy = model['accuracy'];
+    final name     = model.name;
+    final catLabel = model.categoryDisplay;
+    final desc     = model.description;
+    final runs     = model.runCount;
+    final inputType = model.inputType;
+    final inputLabel = model.inputTypeDisplay.isEmpty ? inputType : model.inputTypeDisplay;
+    final slug     = model.slug;
 
     return Container(
       decoration: BoxDecoration(
@@ -366,17 +367,6 @@ class _ModelCard extends StatelessWidget {
                     ),
                     child: Text(catLabel, style: TextStyle(color: catColor, fontSize: 11, fontWeight: FontWeight.w700)),
                   ),
-                  if (accuracy != null) ...[
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFf0fdf4),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text('${accuracy}% acc', style: const TextStyle(color: Color(0xFF15803d), fontSize: 11, fontWeight: FontWeight.w700)),
-                    ),
-                  ],
                 ]),
               ])),
               // Runs badge

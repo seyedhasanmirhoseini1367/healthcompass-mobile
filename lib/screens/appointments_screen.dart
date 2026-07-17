@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../core/api_service.dart';
+import '../models/appointment.dart';
 
 String _serverError(Object e) {
   if (e is DioException) {
@@ -24,8 +25,8 @@ class AppointmentsScreen extends StatefulWidget {
 class _AppointmentsScreenState extends State<AppointmentsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabs;
-  List<dynamic> _upcoming = [];
-  List<dynamic> _past = [];
+  List<Appointment> _upcoming = [];
+  List<Appointment> _past = [];
   bool _loading = true;
   String? _error;
 
@@ -91,7 +92,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
                       empty: 'No upcoming appointments.\nTap + to schedule one.',
                       onRefresh: _load,
                       onEdit: (a) async {
-                        final ok = await context.push<bool>('/appointments/${a['id']}/edit', extra: a);
+                        final ok = await context.push<bool>('/appointments/${a.id}/edit', extra: a);
                         if (ok == true) _load();
                       },
                       onDelete: (a) => _confirmDelete(a),
@@ -109,12 +110,12 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
     );
   }
 
-  Future<void> _confirmDelete(Map<String, dynamic> appt) async {
+  Future<void> _confirmDelete(Appointment appt) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Delete Appointment?'),
-        content: Text('Delete "${appt['title']}"?'),
+        content: Text('Delete "${appt.title}"?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
           TextButton(
@@ -127,7 +128,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
     );
     if (ok == true) {
       try {
-        await ApiService.deleteAppointment(appt['id']);
+        await ApiService.deleteAppointment(appt.id);
         _load();
       } catch (_) {
         if (mounted) {
@@ -142,12 +143,12 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _AppointmentList extends StatelessWidget {
-  final List<dynamic> appointments;
+  final List<Appointment> appointments;
   final String empty;
   final bool isPast;
   final VoidCallback onRefresh;
-  final void Function(Map<String, dynamic>) onEdit;
-  final void Function(Map<String, dynamic>) onDelete;
+  final void Function(Appointment) onEdit;
+  final void Function(Appointment) onDelete;
 
   const _AppointmentList({
     required this.appointments,
@@ -181,7 +182,7 @@ class _AppointmentList extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
         itemCount: appointments.length,
         itemBuilder: (_, i) => _AppointmentCard(
-          appt: Map<String, dynamic>.from(appointments[i]),
+          appt: appointments[i],
           isPast: isPast,
           onEdit: onEdit,
           onDelete: onDelete,
@@ -192,10 +193,10 @@ class _AppointmentList extends StatelessWidget {
 }
 
 class _AppointmentCard extends StatelessWidget {
-  final Map<String, dynamic> appt;
+  final Appointment appt;
   final bool isPast;
-  final void Function(Map<String, dynamic>) onEdit;
-  final void Function(Map<String, dynamic>) onDelete;
+  final void Function(Appointment) onEdit;
+  final void Function(Appointment) onDelete;
 
   const _AppointmentCard({
     required this.appt, required this.isPast,
@@ -204,14 +205,14 @@ class _AppointmentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dt = DateTime.tryParse(appt['appointment_datetime'] ?? '') ?? DateTime.now();
+    final dt = DateTime.tryParse(appt.appointmentDatetime) ?? DateTime.now();
     final monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
     final reminders = <String>[];
-    if (appt['remind_24h'] == true) reminders.add('24h');
-    if (appt['remind_3h']  == true) reminders.add('3h');
-    if (appt['remind_2h']  == true) reminders.add('2h');
-    if (appt['remind_1h']  == true) reminders.add('1h');
+    if (appt.remind24h) reminders.add('24h');
+    if (appt.remind3h)  reminders.add('3h');
+    if (appt.remind2h)  reminders.add('2h');
+    if (appt.remind1h)  reminders.add('1h');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -252,7 +253,7 @@ class _AppointmentCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(appt['title'] ?? '',
+                  Text(appt.title,
                       style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
                       maxLines: 1, overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 4),
@@ -261,10 +262,10 @@ class _AppointmentCard extends StatelessWidget {
                     children: [
                       _meta(Icons.access_time_outlined,
                           '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}'),
-                      if ((appt['doctor_name'] ?? '').isNotEmpty)
-                        _meta(Icons.person_outline, appt['doctor_name']),
-                      if ((appt['location'] ?? '').isNotEmpty)
-                        _meta(Icons.location_on_outlined, appt['location']),
+                      if (appt.doctorName.isNotEmpty)
+                        _meta(Icons.person_outline, appt.doctorName),
+                      if (appt.location.isNotEmpty)
+                        _meta(Icons.location_on_outlined, appt.location),
                     ],
                   ),
                   if (reminders.isNotEmpty) ...[

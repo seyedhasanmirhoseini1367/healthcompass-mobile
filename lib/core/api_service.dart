@@ -5,7 +5,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http_parser/http_parser.dart' as http_parser;
 
+import '../models/ai_model.dart';
+import '../models/appointment.dart';
 import '../models/chat_event.dart';
+import '../models/chat_session.dart';
+import '../models/medical_record.dart';
+import '../models/notification_item.dart';
+import '../models/prediction.dart';
+import '../models/user_profile.dart';
 
 class ApiService {
   static const _base    = 'https://healthcompass.hasanai.net/api/v1';
@@ -94,22 +101,22 @@ class ApiService {
 
   // ── User ──────────────────────────────────────────────────────────────────
 
-  static Future<Map<String, dynamic>> me() async {
+  static Future<UserProfile> me() async {
     final dio = await _client();
     final res = await dio.get('/auth/me/');
-    return res.data;
+    return UserProfile.fromJson(Map<String, dynamic>.from(res.data));
   }
 
   // ── Records ───────────────────────────────────────────────────────────────
 
 
-  static Future<Map<String, dynamic>> recordDetail(String id) async {
+  static Future<MedicalRecord> recordDetail(String id) async {
     final dio = await _client();
     final res = await dio.get('/records/$id/');
-    return res.data;
+    return MedicalRecord.fromJson(Map<String, dynamic>.from(res.data));
   }
 
-  static Future<Map<String, dynamic>> uploadRecord({
+  static Future<MedicalRecord> uploadRecord({
     required Uint8List fileBytes,
     required String fileName,
     required String title,
@@ -127,7 +134,7 @@ class ApiService {
     });
     final res = await dio.post('/records/upload/', data: formData,
         options: Options(headers: {'Content-Type': 'multipart/form-data'}));
-    return Map<String, dynamic>.from(res.data);
+    return MedicalRecord.fromJson(Map<String, dynamic>.from(res.data));
   }
 
   // ── Dashboard ─────────────────────────────────────────────────────────────
@@ -138,7 +145,7 @@ class ApiService {
     return res.data;
   }
 
-  static Future<Map<String, dynamic>> updateProfile({
+  static Future<UserProfile> updateProfile({
     String? firstName, String? lastName, String? phone, String? dob,
   }) async {
     final dio = await _client();
@@ -148,7 +155,7 @@ class ApiService {
       if (phone     != null) 'phone_number': phone,
       if (dob       != null) 'date_of_birth': dob,
     });
-    return Map<String, dynamic>.from(res.data);
+    return UserProfile.fromJson(Map<String, dynamic>.from(res.data));
   }
 
   static Future<void> changePassword({
@@ -161,13 +168,13 @@ class ApiService {
     await _storage.write(key: 'refresh_token', value: res.data['refresh']);
   }
 
-  static Future<Map<String, dynamic>> emergencyCard() async {
+  static Future<EmergencyCard> emergencyCard() async {
     final dio = await _client();
     final res = await dio.get('/auth/emergency-card/');
-    return Map<String, dynamic>.from(res.data);
+    return EmergencyCard.fromJson(Map<String, dynamic>.from(res.data));
   }
 
-  static Future<Map<String, dynamic>> updateEmergencyCard({
+  static Future<EmergencyCard> updateEmergencyCard({
     String? bloodType, String? allergies, String? contactName, String? contactPhone,
   }) async {
     final dio = await _client();
@@ -177,7 +184,7 @@ class ApiService {
       'emergency_contact_name':  contactName ?? '',
       'emergency_contact_phone': contactPhone ?? '',
     });
-    return Map<String, dynamic>.from(res.data);
+    return EmergencyCard.fromJson(Map<String, dynamic>.from(res.data));
   }
 
   static Future<void> deleteRecord(String id) async {
@@ -185,29 +192,31 @@ class ApiService {
     await dio.delete('/records/$id/delete/');
   }
 
-  static Future<List<dynamic>> myPredictions() async {
+  static Future<List<Prediction>> myPredictions() async {
     final dio = await _client();
     final res = await dio.get('/predictions/');
-    return List<dynamic>.from(res.data);
+    return List<dynamic>.from(res.data)
+        .map((e) => Prediction.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
   }
 
-  static Future<Map<String, dynamic>> predictionDetail(String id) async {
+  static Future<Prediction> predictionDetail(String id) async {
     final dio = await _client();
     final res = await dio.get('/predictions/$id/');
-    return Map<String, dynamic>.from(res.data);
+    return Prediction.fromJson(Map<String, dynamic>.from(res.data));
   }
 
-  static Future<Map<String, dynamic>> aiModelDetail(String slug) async {
+  static Future<AIModel> aiModelDetail(String slug) async {
     final dio = await _client();
     final res = await dio.get('/ai-models/$slug/');
-    return Map<String, dynamic>.from(res.data);
+    return AIModel.fromJson(Map<String, dynamic>.from(res.data));
   }
 
-  static Future<Map<String, dynamic>> runModel(
+  static Future<Prediction> runModel(
       String slug, Map<String, dynamic> inputData) async {
     final dio = await _client();
     final res = await dio.post('/ai-models/$slug/run/', data: inputData);
-    return Map<String, dynamic>.from(res.data);
+    return Prediction.fromJson(Map<String, dynamic>.from(res.data));
   }
 
   // ── Analytics ─────────────────────────────────────────────────────────────
@@ -231,10 +240,12 @@ class ApiService {
 
   // ── Notifications ─────────────────────────────────────────────────────────
 
-  static Future<List<dynamic>> notifications() async {
+  static Future<List<NotificationItem>> notifications() async {
     final dio = await _client();
     final res = await dio.get('/notifications/');
-    return List<dynamic>.from(res.data);
+    return List<dynamic>.from(res.data)
+        .map((e) => NotificationItem.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
   }
 
   static Future<void> markNotificationRead(String id) async {
@@ -244,10 +255,12 @@ class ApiService {
 
   // ── AI Models ─────────────────────────────────────────────────────────────
 
-  static Future<List<dynamic>> aiModels() async {
+  static Future<List<AIModel>> aiModels() async {
     final dio = await _client();
     final res = await dio.get('/ai-models/');
-    return List<dynamic>.from(res.data);
+    return List<dynamic>.from(res.data)
+        .map((e) => AIModel.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
   }
 
   static Future<Map<String, dynamic>> uploadProfilePicture(
@@ -275,7 +288,7 @@ class ApiService {
     return Map<String, dynamic>.from(res.data);
   }
 
-  static Future<List<dynamic>> records({String? type, String? q, String? dateFrom, String? dateTo}) async {
+  static Future<List<MedicalRecord>> records({String? type, String? q, String? dateFrom, String? dateTo}) async {
     final dio = await _client();
     final params = <String, String>{};
     if (type     != null && type.isNotEmpty)     params['type']      = type;
@@ -283,7 +296,9 @@ class ApiService {
     if (dateFrom != null && dateFrom.isNotEmpty) params['date_from'] = dateFrom;
     if (dateTo   != null && dateTo.isNotEmpty)   params['date_to']   = dateTo;
     final res = await dio.get('/records/', queryParameters: params.isEmpty ? null : params);
-    return res.data;
+    return List<dynamic>.from(res.data)
+        .map((e) => MedicalRecord.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
   }
 
   // ── Seizure Analysis ──────────────────────────────────────────────────────
@@ -375,22 +390,24 @@ class ApiService {
 
   // ── Appointments ─────────────────────────────────────────────────────────
 
-  static Future<List<dynamic>> appointments({String show = 'upcoming'}) async {
+  static Future<List<Appointment>> appointments({String show = 'upcoming'}) async {
     final dio = await _client();
     final res = await dio.get('/appointments/', queryParameters: {'show': show});
-    return List<dynamic>.from(res.data);
+    return List<dynamic>.from(res.data)
+        .map((e) => Appointment.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
   }
 
-  static Future<Map<String, dynamic>> createAppointment(Map<String, dynamic> data) async {
+  static Future<Appointment> createAppointment(Map<String, dynamic> data) async {
     final dio = await _client();
     final res = await dio.post('/appointments/', data: data);
-    return Map<String, dynamic>.from(res.data);
+    return Appointment.fromJson(Map<String, dynamic>.from(res.data));
   }
 
-  static Future<Map<String, dynamic>> updateAppointment(String id, Map<String, dynamic> data) async {
+  static Future<Appointment> updateAppointment(String id, Map<String, dynamic> data) async {
     final dio = await _client();
     final res = await dio.patch('/appointments/$id/', data: data);
-    return Map<String, dynamic>.from(res.data);
+    return Appointment.fromJson(Map<String, dynamic>.from(res.data));
   }
 
   static Future<void> deleteAppointment(String id) async {
@@ -457,16 +474,21 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, dynamic>> chatSessions() async {
+  static Future<List<ChatSession>> chatSessions() async {
     final dio = await _client();
     final res = await dio.get('/assistant/sessions/');
-    return res.data;
+    final sessions = (res.data['sessions'] as List? ?? const []);
+    return sessions.map((e) => ChatSession.fromJson(Map<String, dynamic>.from(e))).toList();
   }
 
-  static Future<Map<String, dynamic>> chatSessionDetail(String id) async {
+  static Future<({String title, List<ChatHistoryMessage> messages})> chatSessionDetail(String id) async {
     final dio = await _client();
     final res = await dio.get('/assistant/sessions/$id/');
-    return res.data;
+    final data = Map<String, dynamic>.from(res.data);
+    final messages = (data['messages'] as List? ?? const [])
+        .map((e) => ChatHistoryMessage.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+    return (title: (data['title'] ?? 'Chat').toString(), messages: messages);
   }
 
   static Future<void> deleteChatSession(String id) async {

@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
 import '../core/api_service.dart';
+import '../models/user_profile.dart';
 
 class EditProfileScreen extends StatefulWidget {
-  final Map<String, dynamic> user;
+  final UserProfile user;
   const EditProfileScreen({super.key, required this.user});
   @override
   State<EditProfileScreen> createState() => _EditProfileScreenState();
@@ -12,9 +13,9 @@ class EditProfileScreen extends StatefulWidget {
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final _formKey       = GlobalKey<FormState>();
-  late final _firstNameCtrl = TextEditingController(text: widget.user['first_name'] ?? '');
-  late final _lastNameCtrl  = TextEditingController(text: widget.user['last_name']  ?? '');
-  late final _phoneCtrl     = TextEditingController(text: widget.user['phone_number'] ?? '');
+  late final _firstNameCtrl = TextEditingController(text: widget.user.firstName);
+  late final _lastNameCtrl  = TextEditingController(text: widget.user.lastName);
+  late final _phoneCtrl     = TextEditingController(text: widget.user.phoneNumber ?? '');
   String? _dob;
   bool   _saving     = false;
   bool   _uploading  = false;
@@ -24,8 +25,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _dob    = widget.user['date_of_birth'];
-    _picUrl = widget.user['profile_picture']?.toString();
+    _dob    = widget.user.dateOfBirth;
+    _picUrl = widget.user.profilePicture;
   }
 
   @override
@@ -100,10 +101,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final name = '${widget.user['first_name'] ?? ''} ${widget.user['last_name'] ?? ''}'.trim();
+    final name = '${widget.user.firstName} ${widget.user.lastName}'.trim();
     final initials = name.isNotEmpty
         ? name.split(' ').map((w) => w.isNotEmpty ? w[0] : '').take(2).join().toUpperCase()
-        : (widget.user['username'] ?? '?').toString()[0].toUpperCase();
+        : (widget.user.username.isNotEmpty ? widget.user.username : '?')[0].toUpperCase();
 
     return Scaffold(
       backgroundColor: const Color(0xFFf0f7ff),

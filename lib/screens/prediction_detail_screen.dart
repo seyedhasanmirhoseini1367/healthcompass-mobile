@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/api_service.dart';
+import '../models/prediction.dart';
 
 class PredictionDetailScreen extends StatefulWidget {
   final String predictionId;
@@ -9,7 +10,7 @@ class PredictionDetailScreen extends StatefulWidget {
 }
 
 class _PredictionDetailScreenState extends State<PredictionDetailScreen> {
-  Map<String, dynamic>? _pred;
+  Prediction? _pred;
   bool _loading = true;
 
   @override
@@ -26,7 +27,7 @@ class _PredictionDetailScreenState extends State<PredictionDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final risk  = (_pred?['risk_pct'] as num?)?.toDouble();
+    final risk  = _pred?.riskPct;
     final color = risk == null ? const Color(0xFF64748b)
         : risk >= 70 ? const Color(0xFFef4444)
         : risk >= 40 ? const Color(0xFFf59e0b)
@@ -57,7 +58,7 @@ class _PredictionDetailScreenState extends State<PredictionDetailScreen> {
                         border: Border.all(color: color.withValues(alpha: 0.3)),
                       ),
                       child: Column(children: [
-                        Text(_pred!['model_name'] ?? '',
+                        Text(_pred!.modelName,
                             style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Color(0xFF1e293b)),
                             textAlign: TextAlign.center),
                         const SizedBox(height: 20),
@@ -79,8 +80,8 @@ class _PredictionDetailScreenState extends State<PredictionDetailScreen> {
                             risk >= 70 ? 'High Risk' : risk >= 40 ? 'Moderate Risk' : 'Low Risk',
                             style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 16),
                           ),
-                        ] else if ((_pred!['result_label'] ?? '').isNotEmpty)
-                          Text(_pred!['result_label'],
+                        ] else if (_pred!.resultLabel.isNotEmpty)
+                          Text(_pred!.resultLabel,
                               style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 18)),
                       ]),
                     ),
@@ -88,23 +89,23 @@ class _PredictionDetailScreenState extends State<PredictionDetailScreen> {
                     const SizedBox(height: 14),
 
                     // Interpretation
-                    if ((_pred!['interpretation'] ?? '').toString().isNotEmpty)
+                    if (_pred!.interpretation.isNotEmpty)
                       _section('AI Interpretation', Icons.psychology_rounded, const Color(0xFF6366f1),
-                          _pred!['interpretation'].toString()),
+                          _pred!.interpretation),
 
                     const SizedBox(height: 14),
 
                     // Input data
-                    if ((_pred!['input_data'] as Map?)?.isNotEmpty == true)
+                    if (_pred!.inputData.isNotEmpty)
                       _jsonSection('Your Inputs', Icons.input_rounded, const Color(0xFF0ea5e9),
-                          _pred!['input_data'] as Map),
+                          _pred!.inputData),
 
                     const SizedBox(height: 14),
 
                     // Result details
-                    if ((_pred!['result'] as Map?)?.isNotEmpty == true)
+                    if (_pred!.result.isNotEmpty)
                       _jsonSection('Model Output', Icons.analytics_rounded, const Color(0xFF22c55e),
-                          _pred!['result'] as Map),
+                          _pred!.result),
 
                     const SizedBox(height: 14),
                     Center(child: Text(

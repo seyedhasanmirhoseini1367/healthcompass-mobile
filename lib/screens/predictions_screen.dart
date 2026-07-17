@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../core/api_service.dart';
+import '../models/prediction.dart';
 
 class PredictionsScreen extends StatefulWidget {
   const PredictionsScreen({super.key});
@@ -9,7 +10,7 @@ class PredictionsScreen extends StatefulWidget {
 }
 
 class _PredictionsScreenState extends State<PredictionsScreen> {
-  List<dynamic> _items = [];
+  List<Prediction> _items = [];
   bool _loading = true;
   bool _error   = false;
 
@@ -67,17 +68,17 @@ class _PredictionsScreenState extends State<PredictionsScreen> {
     );
   }
 
-  Widget _card(Map pred) {
-    final risk  = (pred['risk_pct'] as num?)?.toDouble();
-    final label = pred['result_label'] ?? '';
-    final model = pred['model_name'] ?? 'AI Model';
+  Widget _card(Prediction pred) {
+    final risk  = pred.riskPct;
+    final label = pred.resultLabel;
+    final model = pred.modelName.isEmpty ? 'AI Model' : pred.modelName;
     final color = risk == null ? const Color(0xFF64748b)
         : risk >= 70 ? const Color(0xFFef4444)
         : risk >= 40 ? const Color(0xFFf59e0b)
         : const Color(0xFF22c55e);
 
     return InkWell(
-      onTap: () => context.push('/predictions/${pred['id']}'),
+      onTap: () => context.push('/predictions/${pred.id}'),
       borderRadius: BorderRadius.circular(14),
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -93,7 +94,7 @@ class _PredictionsScreenState extends State<PredictionsScreen> {
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(model, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
-              Text(_timeAgo(pred['created_at']),
+              Text(_timeAgo(pred.createdAt),
                   style: const TextStyle(color: Color(0xFF94a3b8), fontSize: 11)),
             ])),
             if (risk != null)

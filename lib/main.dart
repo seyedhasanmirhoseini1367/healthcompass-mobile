@@ -5,6 +5,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'core/api_service.dart';
 import 'core/notification_service.dart';
+import 'models/appointment.dart';
+import 'models/user_profile.dart';
 import 'widgets/app_shell.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
@@ -77,7 +79,7 @@ final _router = GoRouter(
     GoRoute(path: '/notifications',  builder: (c, s) => const NotificationsScreen()),
     GoRoute(path: '/upload',         builder: (c, s) => const UploadRecordScreen()),
     GoRoute(path: '/ai-models',      builder: (c, s) => const AIModelsScreen()),
-    GoRoute(path: '/edit-profile',   builder: (c, s) => EditProfileScreen(user: s.extra as Map<String, dynamic>)),
+    GoRoute(path: '/edit-profile',   builder: (c, s) => EditProfileScreen(user: s.extra as UserProfile)),
     GoRoute(path: '/change-password', builder: (c, s) => const ChangePasswordScreen()),
     GoRoute(path: '/emergency-card', builder: (c, s) => const EmergencyCardScreen()),
     GoRoute(path: '/predictions',    builder: (c, s) => const PredictionsScreen()),
@@ -100,7 +102,7 @@ final _router = GoRouter(
     GoRoute(
       path: '/appointments/:id/edit',
       builder: (c, s) => CreateAppointmentScreen(
-        existing: s.extra as Map<String, dynamic>?,
+        existing: s.extra as Appointment?,
       ),
     ),
   ],
