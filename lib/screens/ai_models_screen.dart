@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../core/api_service.dart';
+import '../core/error_handler.dart';
 import '../models/ai_model.dart';
+import '../widgets/error_retry_widget.dart';
 
 class AIModelsScreen extends StatefulWidget {
   const AIModelsScreen({super.key});
@@ -12,19 +14,19 @@ class AIModelsScreen extends StatefulWidget {
 class _AIModelsScreenState extends State<AIModelsScreen> {
   List<AIModel> _models  = [];
   bool _loading = true;
-  bool _error   = false;
+  String? _error;
   String _filterCat = 'all';
 
   @override
   void initState() { super.initState(); _load(); }
 
   Future<void> _load() async {
-    setState(() { _loading = true; _error = false; });
+    setState(() { _loading = true; _error = null; });
     try {
       final data = await ApiService.aiModels();
       setState(() { _models = data; _loading = false; });
-    } catch (_) {
-      setState(() { _error = true; _loading = false; });
+    } catch (e) {
+      setState(() { _error = friendlyError(e); _loading = false; });
     }
   }
 
@@ -76,19 +78,11 @@ class _AIModelsScreenState extends State<AIModelsScreen> {
       backgroundColor: const Color(0xFFf0f7ff),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF22c55e)))
-          : _error
-              ? _buildError()
+          : _error != null
+              ? ErrorRetryWidget(message: _error!, onRetry: _load)
               : RefreshIndicator(onRefresh: _load, child: _buildContent()),
     );
   }
-
-  Widget _buildError() => Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-    const Icon(Icons.wifi_off_rounded, size: 48, color: Color(0xFFcbd5e1)),
-    const SizedBox(height: 12),
-    const Text('Could not load models', style: TextStyle(color: Color(0xFF64748b))),
-    const SizedBox(height: 16),
-    ElevatedButton(onPressed: _load, child: const Text('Retry')),
-  ]));
 
   Widget _buildContent() {
     final filtered = _filtered;

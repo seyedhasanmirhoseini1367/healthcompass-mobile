@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../core/api_service.dart';
+import '../core/error_handler.dart';
 import '../models/medical_record.dart';
+import '../widgets/error_retry_widget.dart';
 
 class RecordDetailScreen extends StatefulWidget {
   final String recordId;
@@ -13,16 +15,18 @@ class RecordDetailScreen extends StatefulWidget {
 class _RecordDetailScreenState extends State<RecordDetailScreen> {
   MedicalRecord? _record;
   bool _loading = true;
+  String? _error;
 
   @override
   void initState() { super.initState(); _load(); }
 
   Future<void> _load() async {
+    setState(() { _loading = true; _error = null; });
     try {
       final data = await ApiService.recordDetail(widget.recordId);
       setState(() { _record = data; _loading = false; });
-    } catch (_) {
-      setState(() => _loading = false);
+    } catch (e) {
+      setState(() { _error = friendlyError(e); _loading = false; });
     }
   }
 
@@ -46,8 +50,12 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
       ),
     );
     if (ok == true && mounted) {
-      await ApiService.deleteRecord(widget.recordId);
-      if (mounted) context.pop();
+      try {
+        await ApiService.deleteRecord(widget.recordId);
+        if (mounted) context.pop();
+      } catch (e) {
+        if (mounted) showErrorSnackBar(context, friendlyError(e));
+      }
     }
   }
 
@@ -72,7 +80,9 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF0ea5e9)))
-          : _record == null
+          : _error != null
+              ? ErrorRetryWidget(message: _error!, onRetry: _load)
+              : _record == null
               ? const Center(child: Text('Record not found.',
                   style: TextStyle(color: Color(0xFF64748b))))
               : ListView(

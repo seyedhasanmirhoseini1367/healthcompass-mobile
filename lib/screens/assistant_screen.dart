@@ -2,8 +2,10 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../core/api_service.dart';
+import '../core/error_handler.dart';
 import '../models/chat_event.dart';
 import '../models/chat_session.dart';
+import '../widgets/error_retry_widget.dart';
 
 /// One rendered chat bubble. Mutable so streamed tokens/sources/chart can be
 /// appended in place without rebuilding the whole message list.
@@ -78,8 +80,9 @@ class _AssistantScreenState extends State<AssistantScreen> {
         _sending = false;
       });
       _scrollDown();
-    } catch (_) {
+    } catch (e) {
       setState(() => _sending = false);
+      if (mounted) showErrorSnackBar(context, friendlyError(e));
     }
   }
 
@@ -94,7 +97,9 @@ class _AssistantScreenState extends State<AssistantScreen> {
       await ApiService.deleteChatSession(id);
       if (_sessionId == id) _newChat();
       await _loadSessions();
-    } catch (_) {}
+    } catch (e) {
+      if (mounted) showErrorSnackBar(context, friendlyError(e));
+    }
   }
 
   // ── Send message ───────────────────────────────────────────────────────────
@@ -773,7 +778,11 @@ class _HistorySheetState extends State<_HistorySheet> {
       final idx = _local.indexWhere((s) => s.id == id);
       if (idx >= 0) _local[idx] = _local[idx].copyWith(title: newTitle);
     });
-    try { await ApiService.renameChatSession(id, newTitle); } catch (_) {}
+    try {
+      await ApiService.renameChatSession(id, newTitle);
+    } catch (e) {
+      if (mounted) showErrorSnackBar(context, friendlyError(e));
+    }
   }
 
   String _formatDate(String? iso) {

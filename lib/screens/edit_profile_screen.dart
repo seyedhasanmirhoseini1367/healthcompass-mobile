@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
 import '../core/api_service.dart';
+import '../core/error_handler.dart';
 import '../models/user_profile.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -74,8 +75,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           const SnackBar(content: Text('Profile picture updated!'),
               backgroundColor: Color(0xFF22c55e)));
       }
-    } catch (_) {
-      setState(() { _error = 'Could not upload picture. Please try again.'; _uploading = false; });
+    } catch (e) {
+      setState(() { _error = friendlyError(e); _uploading = false; });
     }
   }
 
@@ -94,8 +95,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           const SnackBar(content: Text('Profile updated!'), backgroundColor: Color(0xFF22c55e)));
         context.pop(true);
       }
-    } catch (_) {
-      setState(() { _error = 'Could not save. Please try again.'; _saving = false; });
+    } catch (e) {
+      setState(() { _error = friendlyError(e); _saving = false; });
     }
   }
 

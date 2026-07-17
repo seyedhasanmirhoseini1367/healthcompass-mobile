@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../core/api_service.dart';
+import '../core/error_handler.dart';
 import '../models/medical_record.dart';
+import '../widgets/error_retry_widget.dart';
 
 const _recordTypes = [
   ('', 'All'),
@@ -70,8 +72,8 @@ class _RecordsScreenState extends State<RecordsScreen> {
         dateTo:   _dateTo,
       );
       setState(() { _records = data; _loading = false; });
-    } catch (_) {
-      setState(() { _error = 'Could not load records.'; _loading = false; });
+    } catch (e) {
+      setState(() { _error = friendlyError(e); _loading = false; });
     }
   }
 
@@ -232,13 +234,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF0ea5e9)))
           : _error != null
-              ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Icons.cloud_off_rounded, size: 48, color: Color(0xFFcbd5e1)),
-                  const SizedBox(height: 12),
-                  Text(_error!, style: const TextStyle(color: Color(0xFF64748b))),
-                  const SizedBox(height: 16),
-                  ElevatedButton(onPressed: _load, child: const Text('Retry')),
-                ]))
+              ? ErrorRetryWidget(message: _error!, onRetry: _load)
               : RefreshIndicator(
                   onRefresh: _load,
                   child: _records.isEmpty ? _emptyState() : _list(),

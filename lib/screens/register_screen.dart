@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../core/api_service.dart';
+import '../core/error_handler.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -25,17 +26,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
     try {
       await ApiService.register(_email.text.trim(), _password.text, _name.text.trim());
       if (mounted) context.go('/dashboard');
-    } on Exception catch (e) {
-      setState(() { _error = _parseError(e.toString()); });
+    } catch (e) {
+      setState(() { _error = friendlyError(e); });
     } finally {
       if (mounted) setState(() { _loading = false; });
     }
-  }
-
-  String _parseError(String raw) {
-    if (raw.contains('400')) return 'Email already registered or invalid data.';
-    if (raw.contains('connect')) return 'Cannot connect to server. Try again.';
-    return 'Registration failed. Please try again.';
   }
 
   @override

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../core/api_service.dart';
+import '../core/error_handler.dart';
 import '../models/prediction.dart';
+import '../widgets/error_retry_widget.dart';
 
 class PredictionDetailScreen extends StatefulWidget {
   final String predictionId;
@@ -12,16 +14,18 @@ class PredictionDetailScreen extends StatefulWidget {
 class _PredictionDetailScreenState extends State<PredictionDetailScreen> {
   Prediction? _pred;
   bool _loading = true;
+  String? _error;
 
   @override
   void initState() { super.initState(); _load(); }
 
   Future<void> _load() async {
+    setState(() { _loading = true; _error = null; });
     try {
       final data = await ApiService.predictionDetail(widget.predictionId);
       setState(() { _pred = data; _loading = false; });
-    } catch (_) {
-      setState(() => _loading = false);
+    } catch (e) {
+      setState(() { _error = friendlyError(e); _loading = false; });
     }
   }
 
@@ -43,7 +47,9 @@ class _PredictionDetailScreenState extends State<PredictionDetailScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF0ea5e9)))
-          : _pred == null
+          : _error != null
+              ? ErrorRetryWidget(message: _error!, onRetry: _load)
+              : _pred == null
               ? const Center(child: Text('Not found.', style: TextStyle(color: Color(0xFF64748b))))
               : ListView(
                   padding: const EdgeInsets.all(16),

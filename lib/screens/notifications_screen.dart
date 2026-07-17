@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../core/api_service.dart';
+import '../core/error_handler.dart';
 import '../models/notification_item.dart';
+import '../widgets/error_retry_widget.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -11,28 +13,33 @@ class NotificationsScreen extends StatefulWidget {
 class _NotificationsScreenState extends State<NotificationsScreen> {
   List<NotificationItem> _items = [];
   bool _loading = true;
+  String? _error;
 
   @override
   void initState() { super.initState(); _load(); }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    setState(() { _loading = true; _error = null; });
     try {
       final data = await ApiService.notifications();
       setState(() { _items = data; _loading = false; });
-    } catch (_) {
-      setState(() => _loading = false);
+    } catch (e) {
+      setState(() { _error = friendlyError(e); _loading = false; });
     }
   }
 
   Future<void> _markAllRead() async {
     final unread = _items.where((n) => !n.isRead).toList();
-    for (final n in unread) {
-      await ApiService.markNotificationRead(n.id);
+    try {
+      for (final n in unread) {
+        await ApiService.markNotificationRead(n.id);
+      }
+      setState(() {
+        _items = _items.map((n) => n.copyWith(isRead: true)).toList();
+      });
+    } catch (e) {
+      if (mounted) showErrorSnackBar(context, friendlyError(e));
     }
-    setState(() {
-      _items = _items.map((n) => n.copyWith(isRead: true)).toList();
-    });
   }
 
   @override
@@ -55,7 +62,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF0ea5e9)))
-          : _items.isEmpty
+          : _error != null
+              ? ErrorRetryWidget(message: _error!, onRetry: _load)
+              : _items.isEmpty
               ? const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                   Icon(Icons.notifications_off_outlined, size: 56, color: Color(0xFFcbd5e1)),
                   SizedBox(height: 12),

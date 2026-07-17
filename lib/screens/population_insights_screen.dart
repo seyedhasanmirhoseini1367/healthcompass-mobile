@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/api_service.dart';
+import '../core/error_handler.dart';
+import '../widgets/error_retry_widget.dart';
 
 class PopulationInsightsScreen extends StatefulWidget {
   const PopulationInsightsScreen({super.key});
@@ -20,8 +22,8 @@ class _PopulationInsightsScreenState extends State<PopulationInsightsScreen> {
     try {
       final d = await ApiService.populationInsights();
       setState(() { _data = d; _loading = false; });
-    } catch (_) {
-      setState(() { _error = 'Failed to load population data. Please try again.'; _loading = false; });
+    } catch (e) {
+      setState(() { _error = friendlyError(e); _loading = false; });
     }
   }
 
@@ -39,18 +41,10 @@ class _PopulationInsightsScreenState extends State<PopulationInsightsScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF0ea5e9)))
           : _error != null
-              ? _errorView()
+              ? ErrorRetryWidget(message: _error!, onRetry: _load)
               : _body(),
     );
   }
-
-  Widget _errorView() => Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-    const Icon(Icons.cloud_off_rounded, size: 48, color: Color(0xFF94a3b8)),
-    const SizedBox(height: 12),
-    Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFF64748b))),
-    const SizedBox(height: 16),
-    ElevatedButton(onPressed: _load, child: const Text('Retry')),
-  ]));
 
   Widget _body() {
     final d = _data!;

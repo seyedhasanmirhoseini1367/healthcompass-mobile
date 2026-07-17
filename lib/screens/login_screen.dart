@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../core/api_service.dart';
+import '../core/error_handler.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -22,8 +23,8 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       await ApiService.login(_email.text.trim(), _password.text);
       if (mounted) context.go('/dashboard');
-    } catch (_) {
-      setState(() { _error = 'Invalid email or password.'; });
+    } catch (e) {
+      setState(() { _error = isConnectivityIssue(e) ? friendlyError(e) : 'Invalid email or password.'; });
     } finally {
       if (mounted) setState(() { _loading = false; });
     }

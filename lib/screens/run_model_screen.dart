@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../core/api_service.dart';
+import '../core/error_handler.dart';
 import '../models/ai_model.dart';
 import '../models/medical_record.dart';
+import '../widgets/error_retry_widget.dart';
 
 class RunModelScreen extends StatefulWidget {
   final String modelSlug;
@@ -40,8 +42,8 @@ class _RunModelScreenState extends State<RunModelScreen> {
       for (final key in schema.keys) {
         _controllers[key] = TextEditingController();
       }
-    } catch (_) {
-      setState(() { _error = 'Could not load model.'; _loadingModel = false; });
+    } catch (e) {
+      setState(() { _error = friendlyError(e); _loadingModel = false; });
     }
   }
 
@@ -62,10 +64,7 @@ class _RunModelScreenState extends State<RunModelScreen> {
         }
       }
     } catch (e) {
-      setState(() {
-        _error = e.toString().contains('400') ? 'Invalid input — check your values.' : 'Prediction failed. Please try again.';
-        _running = false;
-      });
+      setState(() { _error = friendlyError(e); _running = false; });
     }
   }
 
@@ -121,14 +120,8 @@ class _RunModelScreenState extends State<RunModelScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ));
       }
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Could not load record values'),
-          backgroundColor: Color(0xFFef4444),
-          behavior: SnackBarBehavior.floating,
-        ));
-      }
+    } catch (e) {
+      if (mounted) showErrorSnackBar(context, friendlyError(e));
     }
   }
 
@@ -194,7 +187,7 @@ class _RunModelScreenState extends State<RunModelScreen> {
       body: _loadingModel
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF0ea5e9)))
           : _error != null && _model == null
-              ? Center(child: Text(_error!, style: const TextStyle(color: Color(0xFF64748b))))
+              ? ErrorRetryWidget(message: _error!, onRetry: _loadModel)
               : _buildForm(color),
     );
   }
@@ -401,8 +394,8 @@ class _RecordPickerSheetState extends State<_RecordPickerSheet> {
     try {
       final records = await ApiService.records(type: 'lab_result');
       setState(() { _records = records; _loading = false; });
-    } catch (_) {
-      setState(() { _error = 'Could not load records'; _loading = false; });
+    } catch (e) {
+      setState(() { _error = friendlyError(e); _loading = false; });
     }
   }
 
@@ -444,8 +437,7 @@ class _RecordPickerSheetState extends State<_RecordPickerSheet> {
             child: _loading
                 ? const Center(child: CircularProgressIndicator(color: Color(0xFF0ea5e9)))
                 : _error != null
-                    ? Center(child: Text(_error!,
-                        style: const TextStyle(color: Color(0xFFef4444))))
+                    ? ErrorRetryWidget(message: _error!, onRetry: _loadRecords)
                     : _records!.isEmpty
                         ? const Center(
                             child: Padding(

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../core/api_service.dart';
+import '../core/error_handler.dart';
+import '../widgets/error_retry_widget.dart';
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
@@ -12,14 +14,14 @@ class AnalyticsScreen extends StatefulWidget {
 class _AnalyticsScreenState extends State<AnalyticsScreen> {
   Map<String, dynamic>? _data;
   bool _loading = true;
-  bool _error   = false;
+  String? _error;
   String? _selectedBiomarker;
 
   @override
   void initState() { super.initState(); _load(); }
 
   Future<void> _load() async {
-    setState(() { _loading = true; _error = false; });
+    setState(() { _loading = true; _error = null; });
     try {
       final data = await ApiService.analytics();
       setState(() {
@@ -30,8 +32,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           _selectedBiomarker = trends.isNotEmpty ? trends.keys.first : null;
         }
       });
-    } catch (_) {
-      setState(() { _error = true; _loading = false; });
+    } catch (e) {
+      setState(() { _error = friendlyError(e); _loading = false; });
     }
   }
 
@@ -47,22 +49,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF0ea5e9)))
-          : _error
-              ? _buildError()
+          : _error != null
+              ? ErrorRetryWidget(message: _error!, onRetry: _load)
               : RefreshIndicator(
                   onRefresh: _load,
                   child: _buildContent(),
                 ),
     );
   }
-
-  Widget _buildError() => Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-    const Icon(Icons.wifi_off_rounded, size: 48, color: Color(0xFFcbd5e1)),
-    const SizedBox(height: 12),
-    const Text('Could not load analytics', style: TextStyle(color: Color(0xFF64748b))),
-    const SizedBox(height: 16),
-    ElevatedButton(onPressed: _load, child: const Text('Retry')),
-  ]));
 
   Widget _buildContent() {
     final d       = _data!;

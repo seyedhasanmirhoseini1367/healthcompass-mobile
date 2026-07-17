@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../core/api_service.dart';
+import '../core/error_handler.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
@@ -40,11 +41,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         await ApiService.logout();
         if (mounted) context.go('/login');
       }
-    } on Exception catch (e) {
-      final msg = e.toString().contains('incorrect')
-          ? 'Current password is incorrect.'
-          : 'Failed to change password. Please try again.';
-      setState(() { _error = msg; _saving = false; });
+    } catch (e) {
+      setState(() { _error = friendlyError(e); _saving = false; });
     }
   }
 

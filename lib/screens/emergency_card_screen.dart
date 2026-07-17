@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../core/api_service.dart';
+import '../core/error_handler.dart';
 import '../models/user_profile.dart';
+import '../widgets/error_retry_widget.dart';
 
 class EmergencyCardScreen extends StatefulWidget {
   const EmergencyCardScreen({super.key});
@@ -12,6 +14,7 @@ class _EmergencyCardScreenState extends State<EmergencyCardScreen> {
   EmergencyCard? _data;
   bool _loading = true;
   bool _editing = false;
+  String? _error;
 
   final _bloodTypeCtrl    = TextEditingController();
   final _allergiesCtrl    = TextEditingController();
@@ -32,7 +35,7 @@ class _EmergencyCardScreenState extends State<EmergencyCardScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    setState(() { _loading = true; _error = null; });
     try {
       final data = await ApiService.emergencyCard();
       setState(() {
@@ -43,8 +46,8 @@ class _EmergencyCardScreenState extends State<EmergencyCardScreen> {
         _contactPhoneCtrl.text = data.emergencyContactPhone;
         _loading = false;
       });
-    } catch (_) {
-      setState(() => _loading = false);
+    } catch (e) {
+      setState(() { _error = friendlyError(e); _loading = false; });
     }
   }
 
@@ -63,8 +66,9 @@ class _EmergencyCardScreenState extends State<EmergencyCardScreen> {
           const SnackBar(content: Text('Emergency card updated!'),
               backgroundColor: Color(0xFF22c55e)));
       }
-    } catch (_) {
+    } catch (e) {
       setState(() => _saving = false);
+      if (mounted) showErrorSnackBar(context, friendlyError(e));
     }
   }
 
@@ -88,7 +92,9 @@ class _EmergencyCardScreenState extends State<EmergencyCardScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFFef4444)))
-          : _data == null
+          : _error != null
+              ? ErrorRetryWidget(message: _error!, onRetry: _load)
+              : _data == null
               ? const Center(child: Text('Could not load data.'))
               : SingleChildScrollView(
                   padding: const EdgeInsets.all(16),

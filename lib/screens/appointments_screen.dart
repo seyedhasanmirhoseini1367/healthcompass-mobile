@@ -1,19 +1,9 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../core/api_service.dart';
+import '../core/error_handler.dart';
 import '../models/appointment.dart';
-
-String _serverError(Object e) {
-  if (e is DioException) {
-    final data = e.response?.data;
-    if (data is Map && data['error'] != null) return data['error'].toString();
-    if (data is String && data.isNotEmpty && data.length < 300) return data;
-    final code = e.response?.statusCode;
-    return 'Server error${code != null ? " ($code)" : ""}. Please try again.';
-  }
-  return e.toString();
-}
+import '../widgets/error_retry_widget.dart';
 
 class AppointmentsScreen extends StatefulWidget {
   const AppointmentsScreen({super.key});
@@ -50,7 +40,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
       final past = await ApiService.appointments(show: 'past');
       setState(() { _upcoming = up; _past = past; _loading = false; });
     } catch (e) {
-      setState(() { _error = _serverError(e); _loading = false; });
+      setState(() { _error = friendlyError(e); _loading = false; });
     }
   }
 
@@ -83,7 +73,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? _ErrorView(error: _error!, onRetry: _load)
+              ? ErrorRetryWidget(message: _error!, onRetry: _load)
               : TabBarView(
                   controller: _tabs,
                   children: [
@@ -130,11 +120,8 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
       try {
         await ApiService.deleteAppointment(appt.id);
         _load();
-      } catch (_) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not delete appointment.')));
-        }
+      } catch (e) {
+        if (mounted) showErrorSnackBar(context, friendlyError(e));
       }
     }
   }
@@ -348,25 +335,5 @@ class _AppointmentCard extends StatelessWidget {
           style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
           overflow: TextOverflow.ellipsis)),
     ],
-  );
-}
-
-class _ErrorView extends StatelessWidget {
-  final String error;
-  final VoidCallback onRetry;
-  const _ErrorView({required this.error, required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) => Center(
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const Icon(Icons.error_outline, size: 48, color: Colors.red),
-        const SizedBox(height: 8),
-        Text(error, textAlign: TextAlign.center, style: const TextStyle(fontSize: 13)),
-        const SizedBox(height: 12),
-        ElevatedButton(onPressed: onRetry, child: const Text('Retry')),
-      ],
-    ),
   );
 }
