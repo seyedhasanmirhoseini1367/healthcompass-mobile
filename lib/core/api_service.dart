@@ -1,7 +1,11 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http_parser/http_parser.dart' as http_parser;
+
+import '../models/chat_event.dart';
 
 class ApiService {
   static const _base    = 'https://healthcompass.hasanai.net/api/v1';
@@ -410,6 +414,47 @@ class ApiService {
       if (sessionId != null) 'session_id': sessionId,
     });
     return res.data;
+  }
+
+  /// Streams the assistant's reply token-by-token via SSE. The resolved
+  /// session id (only available as a response header, not an SSE event) is
+  /// reported through [onSessionId] as soon as the response starts.
+  static Stream<ChatEvent> askStream(
+    String query, {
+    String? sessionId,
+    void Function(String sessionId)? onSessionId,
+  }) async* {
+    final dio = await _client();
+    final response = await dio.post<ResponseBody>(
+      '/assistant/stream/',
+      data: {
+        'query': query,
+        if (sessionId != null) 'session_id': sessionId,
+      },
+      options: Options(
+        responseType: ResponseType.stream,
+        receiveTimeout: const Duration(minutes: 5),
+        headers: {'Accept': 'text/event-stream'},
+      ),
+    );
+
+    final sid = response.headers.value('x-session-id');
+    if (sid != null) onSessionId?.call(sid);
+
+    var buffer = '';
+    await for (final chunk in response.data!.stream) {
+      buffer += utf8.decode(chunk, allowMalformed: true);
+      final lines = buffer.split('\n');
+      buffer = lines.removeLast(); // keep the (possibly incomplete) trailing line
+      for (final line in lines) {
+        final event = ChatEvent.parseSseLine(line);
+        if (event != null) yield event;
+      }
+    }
+    if (buffer.isNotEmpty) {
+      final event = ChatEvent.parseSseLine(buffer);
+      if (event != null) yield event;
+    }
   }
 
   static Future<Map<String, dynamic>> chatSessions() async {

@@ -1,5 +1,26 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../core/api_service.dart';
+import '../models/chat_event.dart';
+
+/// One rendered chat bubble. Mutable so streamed tokens/sources/chart can be
+/// appended in place without rebuilding the whole message list.
+class _ChatMsg {
+  final bool isUser;
+  String content;
+  bool streaming;
+  List<SourceRef> sources;
+  ChartPayload? chart;
+
+  _ChatMsg({
+    required this.isUser,
+    this.content = '',
+    this.streaming = false,
+    List<SourceRef>? sources,
+    this.chart,
+  }) : sources = sources ?? [];
+}
 
 class AssistantScreen extends StatefulWidget {
   const AssistantScreen({super.key});
@@ -16,7 +37,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
   String  _sessionTitle = 'New Chat';
 
   // Messages displayed in the current session
-  final List<Map<String, dynamic>> _messages = [];
+  final List<_ChatMsg> _messages = [];
   bool _sending = false;
 
   // Sessions sidebar
@@ -51,8 +72,8 @@ class _AssistantScreenState extends State<AssistantScreen> {
         _sessionTitle = title;
         _messages.clear();
         for (final m in msgs) {
-          _messages.add({'role': 'user',      'content': m['query'],    'time': m['created_at']});
-          _messages.add({'role': 'assistant', 'content': m['response'], 'time': m['created_at']});
+          _messages.add(_ChatMsg(isUser: true,  content: (m['query'] ?? '').toString()));
+          _messages.add(_ChatMsg(isUser: false, content: (m['response'] ?? '').toString()));
         }
         _sending = false;
       });
@@ -82,31 +103,65 @@ class _AssistantScreenState extends State<AssistantScreen> {
     final query = _controller.text.trim();
     if (query.isEmpty || _sending) return;
     _controller.clear();
+
+    final assistantMsg = _ChatMsg(isUser: false, streaming: true);
     setState(() {
-      _messages.add({'role': 'user', 'content': query});
+      _messages.add(_ChatMsg(isUser: true, content: query));
+      _messages.add(assistantMsg);
       _sending = true;
     });
     _scrollDown();
+
+    var streamFailed = false;
     try {
-      final res = await ApiService.ask(query, sessionId: _sessionId);
-      final sid = res['session_id']?.toString();
-      setState(() {
-        _messages.add({'role': 'assistant', 'content': res['answer'] ?? ''});
-        _sending = false;
-        if (sid != null) {
-          _sessionId = sid;
-          if (_sessionTitle == 'New Chat') {
-            _sessionTitle = query.length > 50 ? '${query.substring(0, 50)}…' : query;
-          }
+      await for (final event in ApiService.askStream(
+        query,
+        sessionId: _sessionId,
+        onSessionId: (sid) => _sessionId = sid,
+      )) {
+        switch (event.type) {
+          case ChatEventType.token:
+            setState(() => assistantMsg.content += event.content ?? '');
+            _scrollDown();
+            break;
+          case ChatEventType.sources:
+            setState(() => assistantMsg.sources = event.sources ?? []);
+            break;
+          case ChatEventType.chart:
+            setState(() => assistantMsg.chart = event.chart);
+            break;
+          case ChatEventType.error:
+            streamFailed = true;
+            break;
+          default:
+            break;
         }
-      });
-      _loadSessions();
+      }
     } catch (_) {
-      setState(() {
-        _messages.add({'role': 'assistant', 'content': 'Sorry, something went wrong. Please try again.'});
-        _sending = false;
-      });
+      streamFailed = true;
     }
+
+    // Stream failed before any token arrived — fall back to the blocking
+    // endpoint rather than leaving the bubble empty.
+    if (streamFailed && assistantMsg.content.isEmpty) {
+      try {
+        final res = await ApiService.ask(query, sessionId: _sessionId);
+        assistantMsg.content = (res['answer'] ?? '').toString();
+        final sid = res['session_id']?.toString();
+        if (sid != null) _sessionId = sid;
+      } catch (_) {
+        assistantMsg.content = 'Sorry, something went wrong. Please try again.';
+      }
+    }
+
+    setState(() {
+      assistantMsg.streaming = false;
+      _sending = false;
+      if (_sessionTitle == 'New Chat' && _sessionId != null) {
+        _sessionTitle = query.length > 50 ? '${query.substring(0, 50)}…' : query;
+      }
+    });
+    _loadSessions();
     _scrollDown();
   }
 
@@ -204,13 +259,8 @@ class _AssistantScreenState extends State<AssistantScreen> {
               : ListView.builder(
                   controller: _scroll,
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  itemCount: _messages.length + (_sending ? 1 : 0),
-                  itemBuilder: (_, i) {
-                    if (i == _messages.length) return _buildTypingIndicator();
-                    final m      = _messages[i];
-                    final isUser = m['role'] == 'user';
-                    return _MessageBubble(content: m['content'] ?? '', isUser: isUser);
-                  },
+                  itemCount: _messages.length,
+                  itemBuilder: (_, i) => _MessageBubble(message: _messages[i]),
                 ),
         ),
 
@@ -337,94 +387,254 @@ class _AssistantScreenState extends State<AssistantScreen> {
     ),
   );
 
-  Widget _buildTypingIndicator() => Padding(
-    padding: const EdgeInsets.only(top: 8, bottom: 4),
-    child: Row(children: [
-      Container(
-        width: 36, height: 36,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [Color(0xFF0ea5e9), Color(0xFF6366f1)]),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: const Center(child: Text('🧠', style: TextStyle(fontSize: 16))),
-      ),
-      const SizedBox(width: 10),
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFe2e8f0)),
-        ),
-        child: const _TypingDots(),
-      ),
-    ]),
-  );
 }
 
 // ── Message bubble ────────────────────────────────────────────────────────────
 
 class _MessageBubble extends StatelessWidget {
-  final String content;
-  final bool   isUser;
-  const _MessageBubble({required this.content, required this.isUser});
+  final _ChatMsg message;
+  const _MessageBubble({required this.message});
 
   @override
   Widget build(BuildContext context) {
+    final isUser        = message.isUser;
+    final showTypingDots = !isUser && message.streaming && message.content.isEmpty;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
+      child: Column(
+        crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
-          if (!isUser) ...[
-            Container(
-              width: 32, height: 32,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [Color(0xFF0ea5e9), Color(0xFF6366f1)]),
-                borderRadius: BorderRadius.circular(9),
-              ),
-              child: const Center(child: Text('🧠', style: TextStyle(fontSize: 14))),
-            ),
-            const SizedBox(width: 8),
-          ],
-          Flexible(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * .75),
-              decoration: BoxDecoration(
-                color: isUser ? const Color(0xFF6366f1) : Colors.white,
-                borderRadius: BorderRadius.only(
-                  topLeft:     const Radius.circular(16),
-                  topRight:    const Radius.circular(16),
-                  bottomLeft:  Radius.circular(isUser ? 16 : 4),
-                  bottomRight: Radius.circular(isUser ? 4  : 16),
+          Row(
+            mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (!isUser) ...[
+                Container(
+                  width: 32, height: 32,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: [Color(0xFF0ea5e9), Color(0xFF6366f1)]),
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: const Center(child: Text('🧠', style: TextStyle(fontSize: 14))),
                 ),
-                border: isUser ? null : Border.all(color: const Color(0xFFe2e8f0)),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6, offset: const Offset(0, 2)),
-                ],
+                const SizedBox(width: 8),
+              ],
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * .75),
+                  decoration: BoxDecoration(
+                    color: isUser ? const Color(0xFF6366f1) : Colors.white,
+                    borderRadius: BorderRadius.only(
+                      topLeft:     const Radius.circular(16),
+                      topRight:    const Radius.circular(16),
+                      bottomLeft:  Radius.circular(isUser ? 16 : 4),
+                      bottomRight: Radius.circular(isUser ? 4  : 16),
+                    ),
+                    border: isUser ? null : Border.all(color: const Color(0xFFe2e8f0)),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6, offset: const Offset(0, 2)),
+                    ],
+                  ),
+                  child: showTypingDots
+                      ? const _TypingDots()
+                      : Text(message.content,
+                          style: TextStyle(
+                            color: isUser ? Colors.white : const Color(0xFF1e293b),
+                            fontSize: 14, height: 1.5,
+                          )),
+                ),
               ),
-              child: Text(content,
-                  style: TextStyle(
-                    color: isUser ? Colors.white : const Color(0xFF1e293b),
-                    fontSize: 14, height: 1.5,
-                  )),
-            ),
+              if (isUser) ...[
+                const SizedBox(width: 8),
+                Container(
+                  width: 32, height: 32,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF6366f1).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: const Center(child: Icon(Icons.person_rounded, size: 18, color: Color(0xFF6366f1))),
+                ),
+              ],
+            ],
           ),
-          if (isUser) ...[
-            const SizedBox(width: 8),
-            Container(
-              width: 32, height: 32,
-              decoration: BoxDecoration(
-                color: const Color(0xFF6366f1).withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(9),
+          if (!isUser && message.sources.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 6, left: 40, right: 8),
+              child: Wrap(
+                spacing: 6, runSpacing: 6,
+                children: message.sources.map((s) => _SourceChip(source: s)).toList(),
               ),
-              child: const Center(child: Icon(Icons.person_rounded, size: 18, color: Color(0xFF6366f1))),
             ),
-          ],
+          if (!isUser && message.chart != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8, left: 40, right: 8),
+              child: _TrendChartCard(chart: message.chart!),
+            ),
         ],
       ),
+    );
+  }
+}
+
+// ── Source citation chip ──────────────────────────────────────────────────────
+
+class _SourceChip extends StatelessWidget {
+  final SourceRef source;
+  const _SourceChip({required this.source});
+
+  @override
+  Widget build(BuildContext context) {
+    final parts = <String>[];
+    if (source.isGeneral) {
+      if (source.sourceName != null && source.sourceName!.isNotEmpty) parts.add(source.sourceName!);
+      if (source.topic != null && source.topic!.isNotEmpty) parts.add(source.topic!);
+    } else {
+      if (source.documentType != null && source.documentType!.isNotEmpty) parts.add(source.documentType!);
+      if (source.recordDate != null && source.recordDate!.isNotEmpty) parts.add(source.recordDate!);
+    }
+    final subtitle = parts.join(' · ');
+    final tappable  = !source.isGeneral && (source.recordId?.isNotEmpty ?? false);
+
+    return InkWell(
+      onTap: tappable ? () => context.push('/records/${source.recordId}') : null,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 220),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFFf0f4ff),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFe0e7ff)),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(
+            source.isGeneral ? Icons.public_rounded : Icons.description_rounded,
+            size: 13, color: const Color(0xFF6366f1),
+          ),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(source.title,
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF4338ca))),
+                if (subtitle.isNotEmpty)
+                  Text(subtitle,
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 10, color: Color(0xFF64748b))),
+              ],
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+// ── Biomarker trend chart card ────────────────────────────────────────────────
+
+class _TrendChartCard extends StatelessWidget {
+  final ChartPayload chart;
+  const _TrendChartCard({required this.chart});
+
+  Color get _trendColor => switch (chart.trendDirection) {
+        'INCREASING' => const Color(0xFFef4444),
+        'DECREASING' => const Color(0xFF10b981),
+        _            => const Color(0xFF64748b),
+      };
+
+  IconData get _trendIcon => switch (chart.trendDirection) {
+        'INCREASING' => Icons.trending_up_rounded,
+        'DECREASING' => Icons.trending_down_rounded,
+        _            => Icons.trending_flat_rounded,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    if (chart.values.isEmpty) return const SizedBox.shrink();
+    final minY = [...chart.values, chart.referenceLow ?? chart.values.first]
+        .reduce((a, b) => a < b ? a : b);
+    final maxY = [...chart.values, chart.referenceHigh ?? chart.values.first]
+        .reduce((a, b) => a > b ? a : b);
+    final pad  = ((maxY - minY).abs() * 0.15).clamp(0.5, double.infinity);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFe2e8f0)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6, offset: const Offset(0, 2))],
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(
+            child: Text('${chart.displayName}${chart.unit.isNotEmpty ? " (${chart.unit})" : ""}',
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF1e293b))),
+          ),
+          Icon(_trendIcon, size: 14, color: _trendColor),
+          const SizedBox(width: 3),
+          Text('${chart.pctChange >= 0 ? "+" : ""}${chart.pctChange.toStringAsFixed(1)}%',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _trendColor)),
+        ]),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 140,
+          child: LineChart(
+            LineChartData(
+              minY: minY - pad, maxY: maxY + pad,
+              gridData: const FlGridData(show: false),
+              borderData: FlBorderData(show: false),
+              titlesData: FlTitlesData(
+                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                leftTitles: AxisTitles(
+                  sideTitles: SideTitles(showTitles: true, reservedSize: 36, getTitlesWidget: (v, _) => Text(
+                      v.toStringAsFixed(0), style: const TextStyle(fontSize: 9, color: Color(0xFF94a3b8)))),
+                ),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true, reservedSize: 24,
+                    getTitlesWidget: (v, _) {
+                      final i = v.round();
+                      if (i < 0 || i >= chart.labels.length) return const SizedBox.shrink();
+                      if (chart.labels.length > 4 && i % (chart.labels.length ~/ 4).clamp(1, 100) != 0) {
+                        return const SizedBox.shrink();
+                      }
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(chart.labels[i], style: const TextStyle(fontSize: 9, color: Color(0xFF94a3b8))),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              extraLinesData: ExtraLinesData(horizontalLines: [
+                if (chart.referenceLow != null)
+                  HorizontalLine(y: chart.referenceLow!, color: const Color(0xFFcbd5e1),
+                      strokeWidth: 1, dashArray: [4, 4]),
+                if (chart.referenceHigh != null)
+                  HorizontalLine(y: chart.referenceHigh!, color: const Color(0xFFcbd5e1),
+                      strokeWidth: 1, dashArray: [4, 4]),
+              ]),
+              lineBarsData: [
+                LineChartBarData(
+                  spots: [for (var i = 0; i < chart.values.length; i++) FlSpot(i.toDouble(), chart.values[i])],
+                  isCurved: true,
+                  color: const Color(0xFF6366f1),
+                  barWidth: 2.5,
+                  dotData: const FlDotData(show: true),
+                  belowBarData: BarAreaData(show: true, color: const Color(0xFF6366f1).withValues(alpha: 0.08)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ]),
     );
   }
 }
