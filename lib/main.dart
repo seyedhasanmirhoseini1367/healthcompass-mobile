@@ -2,9 +2,11 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'core/api_service.dart';
+import 'core/auth_state.dart';
 import 'core/notification_service.dart';
 import 'models/appointment.dart';
 import 'models/user_profile.dart';
@@ -41,11 +43,18 @@ void main() async {
     FirebaseMessaging.onBackgroundMessage(firebaseBackgroundHandler);
     await NotificationService.init();
   }
-  runApp(const HealthCompassApp());
+  if (await ApiService.isLoggedIn()) authState.markLoggedIn();
+  runApp(
+    ChangeNotifierProvider.value(
+      value: authState,
+      child: const HealthCompassApp(),
+    ),
+  );
 }
 
 final _router = GoRouter(
   initialLocation: '/login',
+  refreshListenable: authState,
   redirect: (context, state) async {
     final loggedIn = await ApiService.isLoggedIn();
     final pub = ['/login', '/register', '/forgot-password'];

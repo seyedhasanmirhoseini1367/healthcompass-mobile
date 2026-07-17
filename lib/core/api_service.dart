@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
@@ -13,6 +14,7 @@ import '../models/medical_record.dart';
 import '../models/notification_item.dart';
 import '../models/prediction.dart';
 import '../models/user_profile.dart';
+import 'auth_state.dart';
 
 class ApiService {
   static const _base    = 'https://healthcompass.hasanai.net/api/v1';
@@ -49,7 +51,27 @@ class ApiService {
     return dio;
   }
 
-  static Future<bool> _refreshToken() async {
+  // Guards against concurrent 401s each independently calling /auth/refresh/:
+  // without this, two requests failing at once would race two refreshes,
+  // and if either network call threw, that path's `deleteAll()` would wipe
+  // out the access token the *other* concurrent refresh had just written —
+  // forcing a spurious logout even though a valid session existed.
+  static Completer<bool>? _refreshInFlight;
+
+  static Future<bool> _refreshToken() {
+    final inFlight = _refreshInFlight;
+    if (inFlight != null) return inFlight.future;
+
+    final completer = Completer<bool>();
+    _refreshInFlight = completer;
+    _doRefresh().then((result) {
+      _refreshInFlight = null;
+      completer.complete(result);
+    });
+    return completer.future;
+  }
+
+  static Future<bool> _doRefresh() async {
     final refresh = await _storage.read(key: 'refresh_token');
     if (refresh == null) return false;
     try {
@@ -59,6 +81,7 @@ class ApiService {
       return true;
     } catch (_) {
       await _storage.deleteAll();
+      authState.markLoggedOut();
       return false;
     }
   }
@@ -70,6 +93,7 @@ class ApiService {
     final res = await dio.post('/auth/login/', data: {'email': email, 'password': password});
     await _storage.write(key: 'access_token',  value: res.data['access']);
     await _storage.write(key: 'refresh_token', value: res.data['refresh']);
+    authState.markLoggedIn();
     return res.data;
   }
 
@@ -86,6 +110,7 @@ class ApiService {
     });
     await _storage.write(key: 'access_token',  value: res.data['access']);
     await _storage.write(key: 'refresh_token', value: res.data['refresh']);
+    authState.markLoggedIn();
     return res.data;
   }
 
@@ -94,7 +119,10 @@ class ApiService {
     await dio.post('/auth/forgot-password/', data: {'email': email});
   }
 
-  static Future<void> logout() async => _storage.deleteAll();
+  static Future<void> logout() async {
+    await _storage.deleteAll();
+    authState.markLoggedOut();
+  }
 
   static Future<bool> isLoggedIn() async =>
       (await _storage.read(key: 'access_token')) != null;
