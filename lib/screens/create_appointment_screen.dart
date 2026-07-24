@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../core/api_service.dart';
 import '../core/error_handler.dart';
+import '../core/notification_service.dart';
 import '../models/appointment.dart';
 import '../widgets/error_retry_widget.dart';
 
@@ -93,11 +94,10 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
         'remind_2h':  _r2h,
         'remind_1h':  _r1h,
       };
-      if (_isEdit) {
-        await ApiService.updateAppointment(widget.existing!.id, data);
-      } else {
-        await ApiService.createAppointment(data);
-      }
+      final saved = _isEdit
+          ? await ApiService.updateAppointment(widget.existing!.id, data)
+          : await ApiService.createAppointment(data);
+      await NotificationService.scheduleAppointmentReminders(saved);
       if (mounted) context.pop(true);
     } catch (e) {
       setState(() => _saving = false);

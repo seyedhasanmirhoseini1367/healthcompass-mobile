@@ -45,6 +45,30 @@ workflows:
         beta_groups:
           - Internal Testers
 
+  ios-sideload-free:
+    name: iOS Sideload (free, unsigned)
+    max_build_duration: 60
+    environment:
+      flutter: 3.44.5
+      xcode: latest
+      cocoapods: default
+
+    scripts:
+      - name: Get Flutter packages
+        script: flutter pub get
+
+      - name: Build iOS (no codesign)
+        script: flutter build ios --release --no-codesign
+
+      - name: Package unsigned IPA
+        script: |
+          mkdir Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r build/ios/iphoneos/app-unsigned.ipa Payload
+
+    artifacts:
+      - build/ios/iphoneos/app-unsigned.ipa
+
   android-debug:
     name: Android APK (debug)
     max_build_duration: 30

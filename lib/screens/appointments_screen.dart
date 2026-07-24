@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../core/api_service.dart';
 import '../core/error_handler.dart';
+import '../core/notification_service.dart';
 import '../models/appointment.dart';
 import '../widgets/error_retry_widget.dart';
 import '../widgets/skeleton_loader.dart';
@@ -40,6 +41,9 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
       final up   = await ApiService.appointments(show: 'upcoming');
       final past = await ApiService.appointments(show: 'past');
       setState(() { _upcoming = up; _past = past; _loading = false; });
+      for (final appt in up) {
+        NotificationService.scheduleAppointmentReminders(appt);
+      }
     } catch (e) {
       setState(() { _error = friendlyError(e); _loading = false; });
     }
@@ -120,6 +124,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
     if (ok == true) {
       try {
         await ApiService.deleteAppointment(appt.id);
+        await NotificationService.cancelAppointmentReminders(appt.id);
         _load();
       } catch (e) {
         if (mounted) showErrorSnackBar(context, friendlyError(e));
